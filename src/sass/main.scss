@@ -1,0 +1,42 @@
+$color-blue: #03a9f4;
+$color-grey: #CCC;
+
+body {
+    font-size: 24px;
+    font-family: sans-serif;
+}
+
+* {
+    font-size: inherit;
+}
+
+.scopeNode {
+    border: 1px solid transparent;
+    display: table;
+    &:hover {
+        border-color: $color-blue;
+    }
+
+    input {
+        border: none;
+        &:focus {
+            outline: none;
+        }
+    }
+}
+
+.codeLine {
+    border-bottom: 1px solid $color-grey;
+}
+
+.variableDeclaration {
+    >.mutable {
+        
+        +label {
+            opacity: 0.25;
+        }
+        &:checked+label {
+            opacity: 1;
+        }
+    }
+}
