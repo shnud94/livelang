@@ -1,11 +1,11 @@
 import * as React from 'react';
 import * as DOM from 'react-dom';
-import * as program from '../../program';
-import {AST, Helpers, Program} from '../../program';
+import * as program from '../program';
+import {AST, Helpers, Program} from '../program';
 import {LineLikeProps, LineLikeCallbacks, wrapLineLike, NodeProps} from './index';
 import * as _ from 'underscore';
 import * as $ from 'jquery';
-import * as util from './util';
+import * as util from '../view/util';
 
 export type VariableDeclarationProps = LineLikeProps & NodeProps<AST.VariableDeclarationNode>;
 export class VariableDeclaration extends React.Component<VariableDeclarationProps, any> {

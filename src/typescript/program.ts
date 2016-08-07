@@ -1,5 +1,5 @@
-import * as AST from './ast';
-import {Helpers, Types} from './ast';
+import * as AST from './ast/index';
+import {Helpers, Types} from './ast/index';
 
 let openPrograms: {[key: string] : Program} = {};
 export class Program {
@@ -11,7 +11,9 @@ export class Program {
             children: [],
             identifier: 'main',
             type: AST.CodeNodeTypes.module,
-            parent: null 
+            parent: null ,
+            version: '0.0.1',
+            shortName: 'main'
         };
         openPrograms[this.data._id] = this;
     }

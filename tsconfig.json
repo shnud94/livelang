@@ -6,7 +6,7 @@
         "noEmitOnError": true,
         "removeComments": true,
         "preserveConstEnums": true,
-        "moduleResolution": "classic",
+        "moduleResolution": "node",
         "sourceMap": true,
         "outDir": "./build",
         "watch": true,

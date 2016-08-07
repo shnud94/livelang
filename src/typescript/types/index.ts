@@ -1,3 +1,12 @@
+interface BuiltInType<RawType> {
+    typeIdentifier: string
+    rawValue: RawType
+    defaultValue: RawType
+}
+
+type BuiltInTypeUpdater<RawType> = (value: RawType) => RawType
+type TypeIdentifier = string; 
+
 export const BuiltInTypes = {
 
     any: 'any',

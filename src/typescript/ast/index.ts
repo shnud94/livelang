@@ -1,3 +1,5 @@
+import {EventSource} from '../util/events';
+
 export type CodeNodeType = string;
 export namespace CodeNodeTypes {
     export const variableDeclaration: CodeNodeType = "declaration/variable";
@@ -11,11 +13,14 @@ export namespace CodeNodeTypes {
 
     export const scope: CodeNodeType = "scope";
     export const module: CodeNodeType = "scope/module";
+    export const importt: CodeNodeType = "import";
     export const func: CodeNodeType = "scope/function";
    
     export const test: CodeNodeType = "test";
 
     export const noop: CodeNodeType = "noop";
+
+    export const typeDeclaration: CodeNodeType = "declaration/type";
 }
 export const Types = CodeNodeTypes;
 
@@ -114,10 +119,23 @@ export namespace Helpers {
     }
 }
 
+interface CodeNodeRuntime {
+    events: {
+        nodeChanged: EventSource<void>,
+        nodeInterpreted: EventSource<any>,
+        nodeError: EventSource<string>
+    }
+}
+
 export interface CodeNode {
+    _id?: string
+    _runtime?: CodeNodeRuntime
+
+    // Display options for different language frontends, line breaks in javascript, all that stuff
+    display?: {[frontend: string] : any}
+    
     type: CodeNodeType
-    _id: string
-    parent: CodeNode
+    parent: CodeNode,    
 }
 
 export interface StructDefinitionNode {
@@ -137,6 +155,11 @@ export interface ScopeNode extends CodeNode {
 export interface LiteralNode extends CodeNode {
     value: TypedValue
 }
+
+export interface ImportNode extends CodeNode {
+    identifier: string
+}
+
 
 export interface SwitchNode extends CodeNode {
     branches: {
@@ -184,12 +207,28 @@ export interface StatementNode extends CodeNode {
 }
 
 export interface ModuleNode extends ScopeNode {
+
+    /**
+     * Everything that comes under this module node inherits the version from its module. We use this to handle
+     * changes in the language, and upgrade old code in a reliable way
+     */
+    version: string
     children: CodeNode[]
     identifier: string
+    shortName: string
+}
+
+/**
+ * Used for input, should be able to be inserted anywhere
+ * Can also put things like comments in here
+ */
+export interface TextNode extends ScopeNode {
+    text: string
 }
 
 export interface FunctionNode extends ScopeNode {
-    statements: StatementNode[]
+    typeIdentifier: string
+    identifier: string
 }
 
 export interface TestNode extends CodeNode {

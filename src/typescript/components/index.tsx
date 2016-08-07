@@ -1,12 +1,12 @@
-import * as reactive from './reactive';
+import * as reactive from '../reactive';
 import * as React from 'react';
 import * as DOM from 'react-dom';
-import * as program from '../../program';
-import {AST, Helpers, Program} from '../../program';
+import * as program from '../program';
+import {AST, Helpers, Program} from '../program';
 import {VariableDeclaration, VariableDeclarationProps} from './variableDeclaration';
 import * as _ from 'underscore';
 import * as $ from 'jquery';
-import * as util from './util';
+import * as util from '../view/util';
 const Fuse: any = require('fuse.js');
 
 export interface NodeProps<T> {
