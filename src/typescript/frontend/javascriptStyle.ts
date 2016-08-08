@@ -1,5 +1,3 @@
-import * as React from 'react';
-import * as DOM from 'react-dom';
 import * as program from '../program';
 import {AST, Helpers, Program} from '../program';
 import * as _ from 'underscore';
@@ -9,27 +7,196 @@ import 'fuzzyset.js';
 import * as index from './index';
 import {ComponentController} from '../view/index';
 import * as View from '../view/index';
+import {NodeParseDescriptor} from './index';
 
-type NodeTextualComponent = string | NodeTextualDescriptor | NodeTextualDescriptor[];
+const frontendId = 'javascript';
 
-interface NodeTextualDescriptor {
-    components: NodeTextualComponent[]
-    nodeFromComponents: (components: NodeTextualComponent[]) => AST.CodeNode 
+export const frontendDescription = {
+    descriptorForNode<T extends AST.CodeNode>(node: T) : NodeParseDescriptor<T> {
+        return nodeTextualDescriptorForType(node.type) as NodeParseDescriptor<T>;
+    }   
+};
+
+const identifier: RegExp = /^[a-zA-Z_]+\w*/;
+const binaryOperator: RegExp = /^[-+*]|!=|==|>=|<=|<|>|\./;
+const prefixOperator: RegExp = /^[-!]/;
+
+function nodeTextualDescriptorForType(type: AST.CodeNodeType) : NodeParseDescriptor<any> {
+    return descriptors[type] as any; 
 }
 
-const theModule: NodeTextualDescriptor = {
-    components: [
-        'module',
+const importStatement: NodeParseDescriptor<AST.ImportNode> = {
+    nodeFromComponents: components => {
+        return {
+            type: AST.CodeNodeTypes.importt,
+            parent: null,
+            identifier: components[1] as string
+        }
+    },
+    getComponents: () => ([
+        'import',
+        identifier
+    ]),
+    componentsFromNode: node => ['import', node.identifier]
+}
+
+const prefixExpression: NodeParseDescriptor<AST.PrefixExpressionNode> = {
+    nodeFromComponents: components => {
+        return {
+            parent: null,
+            type: AST.CodeNodeTypes.prefixExpression,
+            operator: components[0] as string,
+            subExpression: components[1] as AST.ExpressionNode
+        }
+    },
+    getComponents: () => [
+        prefixOperator,
+        expression
     ],
-    nodeFromComponents: components => null as any
+    componentsFromNode: node => [node.operator, expression.componentsFromNode(node.subExpression).join(' ')]
+}
+
+const callExpression: NodeParseDescriptor<AST.CallExpressionNode> = {
+    nodeFromComponents: components => {
+        return {
+            parent: null,
+            type: AST.CodeNodeTypes.callExpression,
+            subExpression: components[0] as AST.ExpressionNode,
+            argument: components[2] as AST.ExpressionNode
+        }
+    },
+    getComponents: () => ([
+        expression,
+        '(',
+        {maybe: expression},
+        ')'
+    ]),
+    componentsFromNode: node => [
+        expression.componentsFromNode(node.subExpression).join(' '), 
+        '(', 
+        node.argument ? expression.componentsFromNode(node.argument).join(' ') : '',
+        ')'
+    ]
+}
+
+const binaryExpression: NodeParseDescriptor<AST.BinaryExpressionNode> = {
+
+    nodeFromComponents: components => {
+        return {
+            type: AST.CodeNodeTypes.expressionBinary,
+            parent: null,
+            lhs: components[1] as AST.ExpressionNode,
+            operator: components[2] as string,
+            rhs: components[3] as AST.ExpressionNode,
+            display: {
+                [frontendId] : {
+                    brackets: components[0] && components[4]
+                }
+            }
+        }
+    },
+    getComponents: () => ([
+        {maybe: '('},
+        expression,
+        binaryOperator,
+        expression,
+        {maybe: ')'},
+    ]),
+    componentsFromNode: node => [
+        node.display[frontendId].brackets ? '(' : '',
+        expression.componentsFromNode(node.lhs).join(' '), 
+        node.operator,
+        expression.componentsFromNode(node.rhs).join(' '), 
+        node.display[frontendId].brackets ? ')' : ''
+    ]
+}
+
+const expression: NodeParseDescriptor<AST.ExpressionNode> = {
+    nodeFromComponents: components => (components[0] as AST.ExpressionNode),
+    getComponents: () => [
+        {choice: [
+            binaryExpression,
+            prefixExpression,
+            {
+                nodeFromComponents: components => components[0] as string,
+                componentsFromNode: (node: AST.IdentifierExpressionNode) => [node.identifier],
+                getComponents: () => [identifier]  
+            }
+        ]}
+    ],
+    componentsFromNode: node => [
+        nodeTextualDescriptorForType(node.type).componentsFromNode(node).join(' ')
+    ]
 };
 
-const theProgram: NodeTextualDescriptor = {
-    components: [theModule],
-    nodeFromComponents: components => null as any
+const variableDeclaration: NodeParseDescriptor<AST.VariableDeclarationNode> = {
+    nodeFromComponents: components => {
+        return {
+            type: AST.CodeNodeTypes.variableDeclaration,
+            parent: null,
+            mutable: components[1] != null,
+            identifier: components[2] as string,
+            valueExpression: components[3] ? ((components[3] as any)[1] as AST.ExpressionNode) : null,
+            typeExpression: components[4] ? ((components[4] as any)[1] as AST.ExpressionNode) : null,
+        }
+    },
+    getComponents: () => [
+        'let',
+        {maybe: 'mut'},
+        identifier,
+        {maybe: {
+            all: [':', expression] // Type declaration
+        }},
+        {maybe: {
+            all: ['=', expression] // Initial assignment
+        }}
+    ],
+    componentsFromNode: node => [
+        'let',
+        node.mutable ? 'mut' : '',
+        node.identifier,
+        node.typeExpression ? `: ${nodeTextualDescriptorForType(node.typeExpression.type).componentsFromNode(node.typeExpression)}` : '',
+        node.valueExpression ? `: ${nodeTextualDescriptorForType(node.typeExpression.type).componentsFromNode(node.valueExpression)}` : '',        
+    ]
 };
 
+const theModule: NodeParseDescriptor<AST.ModuleNode> = {
+    getComponents: () => [
+        'module',
+        identifier,
+        '{',
+        { any: { 
+            choice: [expression, variableDeclaration] 
+        }},
+        '}'       
+    ],
+    nodeFromComponents: components => {
+        return {
+            type: AST.CodeNodeTypes.module,
+            parent: null,
+            identifier: components[1] as string,
+            version: '0.0.1', // TODO: Store this in text somewhere?
+            children: components[3] as AST.ModuleChild[],
+            shortName: components[1] as string
+        }    
+    },
+    componentsFromNode: node => [
+        'module',
+        node.identifier,
+        '{',
+        node.children.map(c => nodeTextualDescriptorForType(c.type).componentsFromNode(c).join(' ')).join(' '),
+        '}'        
+    ]
+};
 
+const descriptors: any = {
+    [AST.CodeNodeTypes.importt] : importStatement,
+    [AST.CodeNodeTypes.module] : theModule,
+    [AST.CodeNodeTypes.callExpression] : callExpression,
+    [AST.CodeNodeTypes.expressionBinary] : binaryExpression,
+    [AST.CodeNodeTypes.variableDeclaration] : variableDeclaration,
+    [AST.CodeNodeTypes.prefixExpression] : prefixExpression,
+};
 
 // Keep a tree of parsers for various nodes
 // Then when rendering we can link each insertion point to a node in that tree so the program knows what is allowed there and what to try and parse

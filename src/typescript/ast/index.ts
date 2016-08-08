@@ -3,7 +3,8 @@ import {EventSource} from '../util/events';
 export type CodeNodeType = string;
 export namespace CodeNodeTypes {
     export const variableDeclaration: CodeNodeType = "declaration/variable";
-    export const expression: CodeNodeType = "expression";
+    export const callExpression: CodeNodeType = "callExpression";
+    export const prefixExpression: CodeNodeType = "prefixExpression";
     export const expressionBinary: CodeNodeType = "expression/binary";
     export const statement: CodeNodeType = "statement";
 
@@ -145,21 +146,17 @@ export interface StructDefinitionNode {
 export interface VariableDeclarationNode extends CodeNode {
     mutable: boolean
     identifier: string
-    initialValue: ExpressionNode | LiteralNode
+    valueExpression?: ExpressionNode,
+    typeExpression?: ExpressionNode
 }
 
 export interface ScopeNode extends CodeNode {
     children: CodeNode[]
 }
 
-export interface LiteralNode extends CodeNode {
-    value: TypedValue
-}
-
 export interface ImportNode extends CodeNode {
     identifier: string
 }
-
 
 export interface SwitchNode extends CodeNode {
     branches: {
@@ -181,6 +178,7 @@ export interface TypeDeclaration extends CodeNode {
      * 
      * Top level types
      * - Single field types, e.g: boolean, int32, string
+     * - Callable types: function
      * - Array types i.e. [values]
      * - Map types i.e. keys:values
      * 
@@ -197,25 +195,43 @@ export interface TypeDeclaration extends CodeNode {
     typeExpression: ExpressionNode 
 }
 
-export interface ExpressionNode extends CodeNode {}
-export interface BinaryExpressionNode extends ExpressionNode {
 
+export type ExpressionNode = PrefixExpressionNode | BinaryExpressionNode | CallExpressionNode;
+
+export interface IdentifierExpressionNode extends CodeNode {
+    identifier: string    
 }
-
+export interface PrefixExpressionNode extends CodeNode {
+    operator: string,
+    subExpression: ExpressionNode 
+}
+export interface CallExpressionNode extends CodeNode {
+    subExpression: ExpressionNode
+    argument?: ExpressionNode
+}
+export interface BinaryExpressionNode extends CodeNode {
+    lhs: ExpressionNode,
+    operator: string,
+    rhs: ExpressionNode
+}
 export interface StatementNode extends CodeNode {
 
 }
 
-export interface ModuleNode extends ScopeNode {
+export type ModuleChild = VariableDeclarationNode | ExpressionNode;
+export interface ModuleNode extends CodeNode {
 
     /**
      * Everything that comes under this module node inherits the version from its module. We use this to handle
      * changes in the language, and upgrade old code in a reliable way
      */
     version: string
-    children: CodeNode[]
+    children: ModuleChild[]
     identifier: string
     shortName: string
+
+    // IDEA: Some stuff to setup this module for the evironment if it calls code from another language/runtime so that the module
+    // can be treated as if normal
 }
 
 /**

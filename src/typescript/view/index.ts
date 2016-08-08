@@ -3,6 +3,7 @@ import {AST, Helpers, Program} from '../program';
 import * as $ from 'jquery';
 import * as util from './util';
 import {EventSource} from '../util/events';
+import * as Frontend from '../frontend/index';
 
 export interface ComponentDescription {
     /**
@@ -61,6 +62,34 @@ export const createBaseComponentControllerEvents = () : ComponentControllerEvent
         nodeChildRemoved: new EventSource<{index: number}>()
     }
 }
+
+// Reusable controller for all nodes?
+// function basicController(node: AST.CodeNode) : ComponentController {
+
+//     return {
+//         events: createBaseComponentControllerEvents(),
+//         handleComponentChange(value, component) {
+            
+//             return {
+//                 errors: [],
+//                 completions: [],
+//                 success: false
+//             }
+//         ),
+//         handleNewInput(value, prev) {
+            
+//             return {
+//                 errors: [],
+//                 completions: [],
+//                 success: false
+//             }
+//         },
+//         components() {
+
+//         }
+//     }
+
+// }
 
 export type ControllerProvider = (node: AST.CodeNode) => ComponentController;
 interface DOMData {
