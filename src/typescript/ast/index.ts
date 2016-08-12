@@ -2,10 +2,10 @@ import {EventSource} from '../util/events';
 
 export type CodeNodeType = string;
 export namespace CodeNodeTypes {
-    export const variableDeclaration: CodeNodeType = "declaration/variable";
+    export const variableDeclaration: CodeNodeType = "declaration";
     export const callExpression: CodeNodeType = "callExpression";
     export const prefixExpression: CodeNodeType = "prefixExpression";
-    export const expressionBinary: CodeNodeType = "expression/binary";
+    export const expressionBinary: CodeNodeType = "binaryExpression";
     export const statement: CodeNodeType = "statement";
 
     export const switchNode: CodeNodeType = "switch";
@@ -13,9 +13,9 @@ export namespace CodeNodeTypes {
     export const literalNode: CodeNodeType = "literal";
 
     export const scope: CodeNodeType = "scope";
-    export const module: CodeNodeType = "scope/module";
+    export const module: CodeNodeType = "module";
     export const importt: CodeNodeType = "import";
-    export const func: CodeNodeType = "scope/function";
+    export const func: CodeNodeType = "function";
    
     export const test: CodeNodeType = "test";
 
