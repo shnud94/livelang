@@ -1,51 +1,34 @@
 import * as program from '../program';
-import {AST, Helpers, Program} from '../program';
+import {AST, Program} from '../program';
 import * as _ from 'underscore';
 import * as $ from 'jquery';
 import * as types from '../types/index';
 import 'fuzzyset.js';
 import * as index from './index';
-import {ComponentController} from '../view/index';
+import {NodeTextController} from '../view/index';
 import * as View from '../view/index';
-import {NodeParseDescriptor} from './index';
-
-// IDEA: Keep a tree of parsers for various nodes
-// Then when rendering we can link each insertion point to a node in that tree so the program knows what is allowed there and what to try and parse
-
+import {NodeTextDescription, NodeTextSpec} from './index';
 
 const frontendId = 'javascript';
 
 export const frontendDescription = {
-    descriptorForNode<T extends AST.CodeNode>(node: T) : NodeParseDescriptor<T> {
-        return nodeTextualDescriptorForType(node.type) as NodeParseDescriptor<T>;
+    descriptorForNode<T extends AST.CodeNode>(node: T) : NodeTextDescription<T> {
+        return nodeTextualDescriptorForType(node.type) as NodeTextDescription<T>;
     }   
 };
 
-const identifier: RegExp = /^[a-zA-Z_]+\w*/;
-const binaryOperator: RegExp = /^[-+*]|!=|==|>=|<=|<|>|\./;
-const prefixOperator: RegExp = /^[-!]/;
+const identifier: NodeTextSpec = {all: [
+    {charset: 'a-zA-Z'},
+    {'*' : {charset: 'a-zA-Z0-9_-'}}
+]};
 
-function nodeTextualDescriptorForType(type: AST.CodeNodeType) : NodeParseDescriptor<any> {
+function nodeTextualDescriptorForType(type: AST.CodeNodeType) : NodeTextDescription<any> {
     return descriptors[type] as any; 
 }
 
-const importStatement: NodeParseDescriptor<AST.ImportNode> = {
-    nodeFromComponents: components => {
-        return {
-            type: AST.CodeNodeTypes.importt,
-            parent: null,
-            identifier: components[1] as string
-        }
-    },
-    getComponents: () => ([
-        'import',
-        identifier
-    ]),
-    componentsFromNode: node => ['import', node.identifier]
-}
-
-const prefixExpression: NodeParseDescriptor<AST.PrefixExpressionNode> = {
-    nodeFromComponents: components => {
+export const prefixExpression: NodeTextDescription<AST.PrefixExpressionNode> = {
+    id: AST.CodeNodeTypes.prefixExpression,
+    updateNodeFromComponents: components => {
         return {
             parent: null,
             type: AST.CodeNodeTypes.prefixExpression,
@@ -53,15 +36,16 @@ const prefixExpression: NodeParseDescriptor<AST.PrefixExpressionNode> = {
             subExpression: components[1] as AST.ExpressionNode
         }
     },
-    getComponents: () => [
-        prefixOperator,
+    getTextSpecs: () => [
+        {charset: "-!"},
         expression
     ],
     componentsFromNode: node => [node.operator, expression.componentsFromNode(node.subExpression).join(' ')]
 }
 
-const callExpression: NodeParseDescriptor<AST.CallExpressionNode> = {
-    nodeFromComponents: components => {
+export const postfixExpression: NodeTextDescription<AST.CallExpressionNode> = {
+    id: AST.CodeNodeTypes.binaryExpression,
+    updateNodeFromComponents: components => {
         return {
             parent: null,
             type: AST.CodeNodeTypes.callExpression,
@@ -69,11 +53,15 @@ const callExpression: NodeParseDescriptor<AST.CallExpressionNode> = {
             argument: components[2] as AST.ExpressionNode
         }
     },
-    getComponents: () => ([
+    getTextSpecs: () => ([
         expression,
-        '(',
-        {maybe: expression},
-        ')'
+        {or: [
+            {all: ['(', {'?': expression}, ')']}, // call expression,
+            {all: ['.', {or: [
+                identifier,
+                {all: ['[', expression, ']']}
+            ]}]}
+        ]}    
     ]),
     componentsFromNode: node => [
         expression.componentsFromNode(node.subExpression).join(' '), 
@@ -83,123 +71,125 @@ const callExpression: NodeParseDescriptor<AST.CallExpressionNode> = {
     ]
 }
 
-const binaryExpression: NodeParseDescriptor<AST.BinaryExpressionNode> = {
-
-    nodeFromComponents: components => {
+export const binaryExpression: NodeTextDescription<AST.BinaryExpressionNode> = {
+    id: AST.CodeNodeTypes.binaryExpression,
+    updateNodeFromComponents: components => {
         return {
-            type: AST.CodeNodeTypes.expressionBinary,
+            type: AST.CodeNodeTypes.binaryExpression,
             parent: null,
             lhs: components[1] as AST.ExpressionNode,
             operator: components[2] as string,
-            rhs: components[3] as AST.ExpressionNode,
-            display: {
-                [frontendId] : {
-                    brackets: components[0] && components[4]
-                }
-            }
+            rhs: components[3] as AST.ExpressionNode
         }
     },
-    getComponents: () => ([
-        {maybe: '('},
+    getTextSpecs: () => ([
         expression,
-        binaryOperator,
-        expression,
-        {maybe: ')'},
+        {or: ['=', '*', '/', '+', '-', '>', '<', '>=', '<=', '==', '!=', '&&', '||']},
+        expression
     ]),
     componentsFromNode: node => [
-        node.display[frontendId].brackets ? '(' : '',
-        expression.componentsFromNode(node.lhs).join(' '), 
+        node.lhs, 
         node.operator,
-        expression.componentsFromNode(node.rhs).join(' '), 
-        node.display[frontendId].brackets ? ')' : ''
+        node.rhs
     ]
 }
 
-const expression: NodeParseDescriptor<AST.ExpressionNode> = {
-    nodeFromComponents: components => (components[0] as AST.ExpressionNode),
-    getComponents: () => [
-        {choice: [
-            {
-                nodeFromComponents: components => components[0] as string,
-                componentsFromNode: (node: AST.IdentifierExpressionNode) => [node.identifier],
-                getComponents: () => [identifier]  
-            },
+export const expression: NodeTextDescription<AST.ExpressionNode> = {
+    id: AST.CodeNodeTypes.expression,
+    updateNodeFromComponents: components => null as any, // TODO:
+    getTextSpecs: () => [
+        {or: [
+            identifier,
             prefixExpression,
             binaryExpression,            
         ]}
     ],
     componentsFromNode: node => [
-        nodeTextualDescriptorForType(node.type).componentsFromNode(node).join(' ')
+        node
     ]
 };
 
-const variableDeclaration: NodeParseDescriptor<AST.VariableDeclarationNode> = {
-    nodeFromComponents: components => {
-        return {
-            type: AST.CodeNodeTypes.variableDeclaration,
-            parent: null,
-            mutable: components[1] != null,
-            identifier: components[2] as string,
-            valueExpression: components[3] ? ((components[3] as any)[1] as AST.ExpressionNode) : null,
-            typeExpression: components[4] ? ((components[4] as any)[1] as AST.ExpressionNode) : null,
+export const declaration: NodeTextDescription<AST.DeclarationNode> = {
+    id: AST.CodeNodeTypes.declaration,
+    updateNodeFromComponents: (components, prev) => {
+        let node = prev as any;
+        if (!node) {
+            node = {
+                type: AST.CodeNodeTypes.declaration,
+                parent: null, // TODO: How are we going to make sure parent isn't null when first creating a node?
+            };
         }
+
+        node.mutable = components[0] === 'var';
+        node.identifier = components[1] as string;
+        node.valueExpression = components[2];
+        node.typeExpression = components[3];
+
+        return node;
     },
-    getComponents: () => [
-        'let',
-        {maybe: 'mut'},
+    getTextSpecs: () => [
+        {or: ['let', 'var']},
         identifier,
-        {maybe: {
-            all: [':', expression] // Type declaration
-        }},
-        {maybe: {
-            all: ['=', expression] // Initial assignment
-        }}
+        {'?': {all: [':', expression]}}, // Type declaration,
+        {'?': {all: ['=', expression]}}, // Initial assignment
+        ';'
     ],
+    displayOptions: () => [null, null, null, null, {breaksLine: true}],
     componentsFromNode: node => [
-        'let',
-        node.mutable ? 'mut' : '',
+        node.mutable ? 'var' : 'let',
         node.identifier,
-        node.typeExpression ? `: ${nodeTextualDescriptorForType(node.typeExpression.type).componentsFromNode(node.typeExpression)}` : '',
-        node.valueExpression ? `: ${nodeTextualDescriptorForType(node.typeExpression.type).componentsFromNode(node.valueExpression)}` : '',        
+        node.typeExpression ? [':', node.typeExpression] : null,
+        node.valueExpression ? ['=', node.valueExpression] : null,
+        ';'
     ]
 };
 
-const theModule: NodeParseDescriptor<AST.ModuleNode> = {
-    getComponents: () => [
-        'module',
-        identifier,
-        '{',
-        { any: { 
-            choice: [expression, variableDeclaration] 
-        }},
-        '}'       
+export const theModule: NodeTextDescription<AST.ModuleNode> = {
+    id: AST.CodeNodeTypes.module,
+    getTextSpecs: () => [
+        'module', // 0
+        identifier, // 1
+        '{', // 2
+        {'*': {all: [ // 3
+            {or: [expression, declaration]},  
+            ';'
+        ]}},
+        '}' // 4
     ],
-    nodeFromComponents: components => {
-        return {
-            type: AST.CodeNodeTypes.module,
-            parent: null,
-            identifier: components[1] as string,
-            version: '0.0.1', // TODO: Store this in text somewhere?
-            children: components[3] as AST.ModuleChild[],
-            shortName: components[1] as string
-        }    
+    displayOptions() {
+        return [null, null, {breaksLine:true, tabsNextLine: 1}, {breaksLine: true, tabsNextLine: -1}, null]
+    },
+    updateNodeFromComponents: (components, prev) => {
+        let node = prev;
+        if (!node) {
+            node = {
+                type: AST.CodeNodeTypes.module,
+                parent: null,
+                identifier: null,
+                version: '0.0.1', // TODO: Get the latest version that we're on right now
+                children: null
+            };
+        }
+
+        node.identifier = components[1] as string;
+        node.children = components[3] as AST.ModuleChild[];
+        return node;
     },
     componentsFromNode: node => [
         'module',
         node.identifier,
         '{',
-        node.children.map(c => nodeTextualDescriptorForType(c.type).componentsFromNode(c).join(' ')).join(' '),
+        node.children,
         '}'        
     ]
 };
 
-const descriptors: any = {
-    [AST.CodeNodeTypes.importt] : importStatement,
+export const descriptors: any = {
     [AST.CodeNodeTypes.module] : theModule,
-    [AST.CodeNodeTypes.callExpression] : callExpression,
-    [AST.CodeNodeTypes.expressionBinary] : binaryExpression,
-    [AST.CodeNodeTypes.variableDeclaration] : variableDeclaration,
+    [AST.CodeNodeTypes.postfixExpression] : postfixExpression,
     [AST.CodeNodeTypes.prefixExpression] : prefixExpression,
+    [AST.CodeNodeTypes.binaryExpression] : binaryExpression,
+    [AST.CodeNodeTypes.declaration] : declaration
 };
 
 

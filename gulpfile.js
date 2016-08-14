@@ -9,9 +9,7 @@ var concat = require('gulp-concat');
 var sourcemaps = require('gulp-sourcemaps');
 var merge = require('merge2');
 var run = require('gulp-run');
-var electron = require('electron-connect').server.create({
-    port: 10235
-});
+var electron = require('electron-connect').server.create();
  
 var paths = {
     typescript: ['src/**/*.ts', 'src/**/*.tsx', 'typings/**/*.d.ts'],

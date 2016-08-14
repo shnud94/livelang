@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "electron-connect": "^0.4.2",
+    "eval": "^0.1.1",
     "fuse.js": "^2.3.0",
     "fuzzyset.js": "0.0.1",
     "gulp": "^3.9.1",
@@ -38,8 +39,10 @@
     "jquery": "^3.1.0",
     "jquery.caret": "^0.3.1",
     "merge2": "^1.0.2",
+    "nearley": "^2.7.3",
     "react": "^15.2.1",
     "react-dom": "^15.2.1",
+    "sync-promise": "^1.0.1",
     "underscore": "^1.8.3"
   }
 }

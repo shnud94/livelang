@@ -2,123 +2,111 @@ import {EventSource} from '../util/events';
 
 export type CodeNodeType = string;
 export namespace CodeNodeTypes {
-    export const variableDeclaration: CodeNodeType = "declaration";
+    export const declaration: CodeNodeType = "declaration";
     export const callExpression: CodeNodeType = "callExpression";
     export const prefixExpression: CodeNodeType = "prefixExpression";
-    export const expressionBinary: CodeNodeType = "binaryExpression";
-    export const statement: CodeNodeType = "statement";
-
-    export const switchNode: CodeNodeType = "switch";
-
+    export const postfixExpression: CodeNodeType = "postfixExpression";
+    export const binaryExpression: CodeNodeType = "binaryExpression";
+    export const expression: CodeNodeType = "expression";
     export const literalNode: CodeNodeType = "literal";
-
-    export const scope: CodeNodeType = "scope";
     export const module: CodeNodeType = "module";
-    export const importt: CodeNodeType = "import";
-    export const func: CodeNodeType = "function";
-   
-    export const test: CodeNodeType = "test";
-
-    export const noop: CodeNodeType = "noop";
-
-    export const typeDeclaration: CodeNodeType = "declaration/type";
 }
 export const Types = CodeNodeTypes;
 
-export namespace Helpers {
+// export namespace Helpers {
     
-    export function hasType(node: CodeNode, type: CodeNodeType) {
-        return node.type.split('/').indexOf(type) >= 0;
-    } 
+//     export function hasType(node: CodeNode, type: CodeNodeType) {
+//         return node.type.split('/').indexOf(type) >= 0;
+//     } 
 
-    export function hasChildren(node: CodeNode) {
-        return Helpers.hasType(node, Types.scope);
-    }
+//     export function hasChildren(node: CodeNode) {
+//         return Helpers.hasType(node, Types.scope);
+//     }
 
-    export function maybeChildren(node: CodeNode) : CodeNode[] {
-        if (Helpers.hasType(node, Types.scope)) {
-            return (node as ScopeNode).children;
-        }
-        return [];
-    }
+//     export function maybeChildren(node: CodeNode) : CodeNode[] {
+//         if (Helpers.hasType(node, Types.scope)) {
+//             return (node as ScopeNode).children;
+//         }
+//         return [];
+//     }
 
-    export function declaredIdentifiersAtNode(node: CodeNode, searchSource: CodeNode = node) : CodeNode[] {
-        if (!node.parent) {
-            return [];
-        }
+//     export function declaredIdentifiersAtNode(node: CodeNode, searchSource: CodeNode = node) : CodeNode[] {
+//         if (!node.parent) {
+//             return [];
+//         }
 
-        let identifiersHere: CodeNode[] = [];
-        let children = this.maybeChildren(node);
+//         let identifiersHere: CodeNode[] = [];
+//         let children = this.maybeChildren(node);
         
-        // Only add children up to source if source is child,
-        // i.e. declared variables after the source are not available yet
-        for (let i = 0; i < children.length; i++) {
-            const child = children[i];
-            if (child._id === searchSource._id) {
-                break;
-            }
-            identifiersHere = identifiersHere.concat(child);
-        }
+//         // Only add children up to source if source is child,
+//         // i.e. declared variables after the source are not available yet
+//         for (let i = 0; i < children.length; i++) {
+//             const child = children[i];
+//             if (child._id === searchSource._id) {
+//                 break;
+//             }
+//             identifiersHere = identifiersHere.concat(child);
+//         }
 
-        return identifiersHere.concat(this.declaredIdentifiersAtNode(node.parent));
-    }
+//         return identifiersHere.concat(this.declaredIdentifiersAtNode(node.parent));
+//     }
 
-    export function getAllowedChildTypes(node: CodeNode) {
-        let types: string[] = [];
-        if (Helpers.hasType(node, Types.scope)) {
-            types.push(Types.variableDeclaration);
-            types.push(Types.statement);
-            types.push(Types.func);
-        }
-        return types;
-    }
+//     export function getAllowedChildTypes(node: CodeNode) {
+//         let types: string[] = [];
+//         if (Helpers.hasType(node, Types.scope)) {
+//             types.push(Types.declaration);
+//             types.push(Types.statement);
+//             types.push(Types.func);
+//         }
+//         return types;
+//     }
 
-    /// Typing is fast, don't force users to use mouse input to create values
-    /// everything can still be parsed
-    ///
-    /// As they're typing, show parsed results or origin of variable if unable to parse, or nothing
-    export function parseStringToVariable(str: string) : TypedValue | void {
+//     /// Typing is fast, don't force users to use mouse input to create values
+//     /// everything can still be parsed
+//     ///
+//     /// As they're typing, show parsed results or origin of variable if unable to parse, or nothing
+//     export function parseStringToVariable(str: string) : TypedValue | void {
 
-        if (str === 'true' || str === 'false') {
-            return {
-                type: 'boolean',
-                value: Boolean(str)
-            }
-        }
-        if (/"[^"]*"/.test(str)) {
-            return {
-                type: 'string',
-                value: str.substr(1, str.length - 2)
-            }
-        }
-        if (/\d*\.\d+/g.test(str)) {
-            return {
-                type: 'float',
-                value: parseFloat(str)
-            }
-        }
-        if (/\d+/.test(str)) {
-            return {
-                type: 'integer', // TODO: Implement different variants of ints/floats e.g. int32, uint32, float16
-                value: parseInt(str)
-            }
-        }
-        if (/\[.*\]/.test(str)) {
-            return parseArray(str);
-        }
+//         if (str === 'true' || str === 'false') {
+//             return {
+//                 type: 'boolean',
+//                 value: Boolean(str)
+//             }
+//         }
+//         if (/"[^"]*"/.test(str)) {
+//             return {
+//                 type: 'string',
+//                 value: str.substr(1, str.length - 2)
+//             }
+//         }
+//         if (/\d*\.\d+/g.test(str)) {
+//             return {
+//                 type: 'float',
+//                 value: parseFloat(str)
+//             }
+//         }
+//         if (/\d+/.test(str)) {
+//             return {
+//                 type: 'integer', // TODO: Implement different variants of ints/floats e.g. int32, uint32, float16
+//                 value: parseInt(str)
+//             }
+//         }
+//         if (/\[.*\]/.test(str)) {
+//             return parseArray(str);
+//         }
 
-        // If what they've typed isn't a value, they must be referring to a variable
-        return null;
-    }
+//         // If what they've typed isn't a value, they must be referring to a variable
+//         return null;
+//     }
 
-    function parseArray(str: string) : TypedValue {
-        const removeBrackets = str.substr(1, str.length - 2);
-        return {
-            type: 'array',
-            value: str.split(',').map(s => parseStringToVariable(s))
-        }
-    }
-}
+//     function parseArray(str: string) : TypedValue {
+//         const removeBrackets = str.substr(1, str.length - 2);
+//         return {
+//             type: 'array',
+//             value: str.split(',').map(s => parseStringToVariable(s))
+//         }
+//     }
+// }
 
 interface CodeNodeRuntime {
     events: {
@@ -143,7 +131,7 @@ export interface StructDefinitionNode {
     
 }
 
-export interface VariableDeclarationNode extends CodeNode {
+export interface DeclarationNode extends CodeNode {
     mutable: boolean
     identifier: string
     valueExpression?: ExpressionNode,
@@ -196,7 +184,9 @@ export interface TypeDeclaration extends CodeNode {
 }
 
 
-export type ExpressionNode = PrefixExpressionNode | BinaryExpressionNode | CallExpressionNode;
+export interface ExpressionNode extends CodeNode {
+    expression: PrefixExpressionNode | BinaryExpressionNode | CallExpressionNode
+}
 
 export interface IdentifierExpressionNode extends CodeNode {
     identifier: string    
@@ -218,7 +208,7 @@ export interface StatementNode extends CodeNode {
 
 }
 
-export type ModuleChild = VariableDeclarationNode | ExpressionNode;
+export type ModuleChild = DeclarationNode | ExpressionNode;
 export interface ModuleNode extends CodeNode {
 
     /**
@@ -227,8 +217,9 @@ export interface ModuleNode extends CodeNode {
      */
     version: string
     children: ModuleChild[]
+
+    // IDEA: Short name and a fully qualified name for imports etc.
     identifier: string
-    shortName: string
 
     // IDEA: Some stuff to setup this module for the evironment if it calls code from another language/runtime so that the module
     // can be treated as if normal
@@ -246,6 +237,7 @@ export interface FunctionNode extends ScopeNode {
     typeIdentifier: string
     identifier: string
 }
+
 
 export interface TestNode extends CodeNode {
     function: FunctionNode,

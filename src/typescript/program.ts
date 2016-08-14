@@ -1,19 +1,48 @@
 import * as AST from './ast/index';
-import {Helpers, Types} from './ast/index';
+import {Types} from './ast/index';
 
 let openPrograms: {[key: string] : Program} = {};
 export class Program {
 
     data: AST.ModuleNode;
     constructor() {
+
+
         this.data = {
             _id: this.getNextId(),
-            children: [],
+            children: [
+
+                {
+                    type: AST.CodeNodeTypes.declaration,
+                    mutable: true,
+                    identifier: 'myVar',
+                    valueExpression: null,
+                    typeExpression: null,
+                    parent: null
+                } as AST.DeclarationNode,
+
+                {
+                    type: AST.CodeNodeTypes.declaration,
+                    mutable: true,
+                    identifier: 'myOtherVar',
+                    valueExpression: null,
+                    typeExpression: null,
+                    parent: null
+                } as AST.DeclarationNode,
+
+                {
+                    type: AST.CodeNodeTypes.declaration,
+                    mutable: true,
+                    identifier: 'hereTakeMyLastVar',
+                    valueExpression: null,
+                    typeExpression: null,
+                    parent: null
+                } as AST.DeclarationNode,
+            ],
             identifier: 'main',
             type: AST.CodeNodeTypes.module,
             parent: null ,
-            version: '0.0.1',
-            shortName: 'main'
+            version: '0.0.1'
         };
         openPrograms[this.data._id] = this;
     }
@@ -28,14 +57,6 @@ export class Program {
             return Program.programFromNode(node.parent);
         }
         return openPrograms[node._id];
-    }
-
-    createEmptyNode(parent: AST.CodeNode) : AST.CodeNode {
-        return {
-            _id: this.getNextId(),
-            type: AST.CodeNodeTypes.noop,
-            parent: parent
-        };
     }
 }
 
@@ -55,4 +76,4 @@ export function programToRust(program: Program) : string {
     return ''; // TODO: ;)
 }
 
-export {AST, Helpers};
+export {AST};
