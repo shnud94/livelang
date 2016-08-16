@@ -21,6 +21,12 @@ const identifier: NodeTextSpec = {all: [
     {charset: 'a-zA-Z'},
     {'*' : {charset: 'a-zA-Z0-9_-'}}
 ]};
+const numericLiteral: NodeTextSpec = {all: [
+    {'*' : {charset: '0-9'}},
+    {'?' : {all: ['.', {'+' : {charset: '0-9'}}]}}
+]};
+const __ = {'*': {charset: ' \\t\\n\\v\\f'}};
+const ___ = {'+': {charset: ' \\t\\n\\v\\f'}};
 
 function nodeTextualDescriptorForType(type: AST.CodeNodeType) : NodeTextDescription<any> {
     return descriptors[type] as any; 
@@ -77,19 +83,23 @@ export const binaryExpression: NodeTextDescription<AST.BinaryExpressionNode> = {
         return {
             type: AST.CodeNodeTypes.binaryExpression,
             parent: null,
-            lhs: components[1] as AST.ExpressionNode,
+            lhs: components[0] as AST.ExpressionNode,
             operator: components[2] as string,
-            rhs: components[3] as AST.ExpressionNode
+            rhs: components[4] as AST.ExpressionNode
         }
     },
     getTextSpecs: () => ([
         expression,
+        __,
         {or: ['=', '*', '/', '+', '-', '>', '<', '>=', '<=', '==', '!=', '&&', '||']},
+        __,
         expression
     ]),
     componentsFromNode: node => [
         node.lhs, 
+        ' ',
         node.operator,
+        ' ',
         node.rhs
     ]
 }
@@ -100,6 +110,7 @@ export const expression: NodeTextDescription<AST.ExpressionNode> = {
     getTextSpecs: () => [
         {or: [
             identifier,
+            numericLiteral,
             prefixExpression,
             binaryExpression,            
         ]}
@@ -121,26 +132,32 @@ export const declaration: NodeTextDescription<AST.DeclarationNode> = {
         }
 
         node.mutable = components[0] === 'var';
-        node.identifier = components[1] as string;
-        node.valueExpression = components[2];
-        node.typeExpression = components[3];
+        node.identifier = components[2] as string;
+        node.valueExpression = components[4];
+        node.typeExpression = components[6];
 
         return node;
     },
     getTextSpecs: () => [
         {or: ['let', 'var']},
+        ___,
         identifier,
-        {'?': {all: [':', expression]}}, // Type declaration,
-        {'?': {all: ['=', expression]}}, // Initial assignment
-        ';'
+        __,
+        {'?': {all: [':', __, expression]}}, // Type declaration,
+        __,
+        {'?': {all: ['=', __, expression]}}, // Initial assignment
+        __,
     ],
-    displayOptions: () => [null, null, null, null, {breaksLine: true}],
+    displayOptions: () => [null, null, null, null, null, null, null, {breaksLine: true}],
     componentsFromNode: node => [
         node.mutable ? 'var' : 'let',
+        ' ',
         node.identifier,
-        node.typeExpression ? [':', node.typeExpression] : null,
-        node.valueExpression ? ['=', node.valueExpression] : null,
-        ';'
+        '',
+        node.typeExpression ? [': ', node.typeExpression] : null,
+        ' ',
+        node.valueExpression ? ['= ', node.valueExpression] : null,
+        '',
     ]
 };
 

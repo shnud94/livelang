@@ -30,7 +30,7 @@ type NodeTextComponentType =
     | AST.CodeNode;
 
 export interface NodeTextDisplayOptions {
-    breaksLine?: boolean,
+breaksLine?: boolean,
 
     // zero/null: no effect
     // 1: increase tab
