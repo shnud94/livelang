@@ -33,21 +33,3 @@ export const parse = (grammar: nearley.Grammar, input: string) : Result<any> => 
 
     return {result: parser.results.last()};
 };
-
-// let compiledGrammar: any;
-// export const getParser = (): Result<nearley.Parser> => {
-//     let error: string = null;
-//     if (!compiledGrammar) {
-//         const maybeCompiled = compileGrammarFromFile('./src/typescript/parse/grammar.ne');
-//         compiledGrammar = maybeCompiled.result;
-//         error = maybeCompiled.error;
-//     }
-//     if (error) {
-//         console.error(error);
-//     }
-//     return {
-//         error: error, 
-//         result: new nearley.Parser(compiledGrammar.ParserRules, compiledGrammar.ParserStart)
-//     };
-// };
-

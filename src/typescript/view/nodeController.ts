@@ -23,8 +23,44 @@ const createBaseComponentControllerEvents = () : NodeEvents => {
     }
 }
 
+const verifyAgainstStringSpec = (input: string, spec: string, parent: NodeTextDescription<any>) : Result<any> => {
+
+    const grammar = parserCustom.generateNearleyGrammarFromTextSpec('rule', spec);
+    const compiled = nearley.compileGrammar(grammar);
+
+    if (!compiled.result) {
+        return compiled.error;
+    }
+
+    const parseResult = nearley.parse(compiled.result, input);
+    if (parseResult.result) {
+        return {
+            result: _.flatten(parseResult.result).join('')
+        };
+    }
+    else {
+        return {
+            error: parseResult.error
+        }
+    }
+}
+
 const verifyAgainstTextSpec = (input: string, spec: NodeTextSpec, parent: NodeTextDescription<any>) : Result<any> => {
 
+    if (typeof(spec) === 'string') {
+        verifyAgainstStringSpec(input, spec as string, parent);
+    }
+    else if ((spec as any).getTextSpecs) {
+        // We've got a node text description, we expect a node back
+
+        const handleChildTextDefinition = (definitions: NodeTextSpec) => {
+            
+            // still wanna parse the whole thing with one grammar, but rules that are NodeTextDescriptions need to have
+            // transform functions that will 
+        }
+
+        // or skip this, convert everything at the end?
+    }
     const grammar = parserCustom.generateNearleyGrammarFromTextSpec('rule', spec);
     const compiled = nearley.compileGrammar(grammar);
     if (!compiled.result) {
@@ -55,13 +91,11 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
     // of many
     let startComponentNodesByIndex: {[key: number] : HTMLElement} = {};
 
-    let controller = {
+    let thisController = {
         events: createBaseComponentControllerEvents(),
-        handleComponentChange: (index) => {
+        handleComponentChange: (index, newComponentText) => {
             
-            // go to the parser, check the input is valid for this component
-            const newComponentText = $(startComponentNodesByIndex[index]).text();
-            const result = verifyAgainstTextSpec(newComponentText, nodeDescription.getTextSpecs()[index], nodeDescription);
+            const result = verifyAgainstTextSpec(newComponentText, nodeDescription.getTextSpecs()[index[0]], nodeDescription);
 
             // if invalid, return errors
             if (result.error) {
@@ -84,7 +118,7 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
         },
         render(parent: HTMLElement) {
 
-            const processDescription = (controller: NodeTextController, desc: NodeTextComponent, index: number, array: NodeTextComponent[]) => {
+            const processDescription = (desc: NodeTextComponent, index: number, array: NodeTextComponent[], indexInArray: number) => {
                 
                 if (desc == null) {
                     desc = '';
@@ -97,7 +131,7 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
                         .attr('contentEditable', 'true')
                         .data({
                             representedNode: node,
-                            componentController: controller,
+                            componentController: thisController,
                             index: index
                         } as DOMData)
                         .text(asString).appendTo(parent);
@@ -108,21 +142,23 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
                     // Assume it's a node, grab its controller and render afterwards
                     const asNode = desc as AST.CodeNode;
                     const controllerForChildNode = basicController(asNode);
-                    controllerForChildNode.parent = this;
+                    controllerForChildNode.parentController = thisController;
                     controllerForChildNode.render(parent);
+                    controllerForChildNode.indexInParent = index;
+                    controllerForChildNode.indexInArray = indexInArray;
                 }
             };
             
             nodeDescription.componentsFromNode(node).forEach((component, index, array) => {
 
                 const asArray = utils.forceArray(component);
-                asArray.forEach(component => {
-                    processDescription(controller, component, index, array);
+                asArray.forEach((component, indexInArray) => {
+                    processDescription(component, index, array, indexInArray);
                 })                
             });
         },
         description: nodeDescription
     }
 
-    return controller;
+    return thisController;
 }

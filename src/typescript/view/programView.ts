@@ -154,23 +154,55 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
     };
 
     const keyup = _.debounce((event: KeyboardEvent) => {
-        const target = event.target as HTMLElement;
-        const data = $(target).data() as DOMData;
+        const $target = $(event.target);
+        const data = $target.data() as DOMData;
+        const value = $target.text();
 
-        if (/^[a-zA-Z0-9]+/.test(event.key)) {
+        console.log(event.key.trim().length);
+        if (event.key.trim().length === 1) {
 
+            // Will be true if the node represents a text part of a component
             if (data.componentController) {
-                const response = data.componentController.handleComponentChange(data.index);
+                const response = data.componentController.handleComponentChange([data.index], value);
                 if (response.errors.length > 0) {
                     console.log(response.errors);
-                    $(target).addClass('-has-errors');
+                    $target.addClass('-has-errors');
                 }
                 else {
-                    $(target).removeClass('-has-errors');
+                    $target.removeClass('-has-errors');
                 }
                 if (response.completions.length > 0) {
                     console.log(response.completions);
                 }                    
+            }
+            else {
+                const previous = $target.prev('.node');
+                const data = previous.data() as DOMData;
+                
+                const results = [];
+                let controller = data.componentController;
+                const indexes = [data.index + 1];
+                
+                while (controller) {
+
+                    const index = indexes[0];
+                    // Only give the controller the chance to intercept this new 
+                    // content here if its within its component bounds
+                    if (index < controller.description.getTextSpecs().length) {
+                        const result = controller.handleComponentChange(indexes, value);
+                        results.push(results);
+                        
+                        if (result.success) {
+                            // TODO:
+                        }
+                    }                    
+                    
+                    if (controller.indexInArray) {
+                        indexes.unshift(controller.indexInArray);
+                    }
+                    indexes.unshift(controller.indexInParent);
+                    controller = controller.parentController;
+                }
             }
         }
     }, 200);

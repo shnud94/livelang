@@ -3,7 +3,8 @@ import * as _ from 'underscore';
 
 interface GrammarCreationContext {
     rulesByName: {[key: string] : any},
-    childRulesByName: {[key: string] : any}
+    childRulesByName: {[key: string] : any},
+    charsetsSoFar: {[charset: string] : string}
 }
 
 export const getChildRuleName = (context: GrammarCreationContext, parentRule?: string) => {
@@ -16,7 +17,8 @@ export const generateNearleyGrammarFromTextSpec = (name: string, spec: NodeTextS
 
     let creationContext: GrammarCreationContext = {
         rulesByName: {},
-        childRulesByName: {}
+        childRulesByName: {},
+        charsetsSoFar: {}
     }
 
     generateNearleyRulesFromTextSpecs(name, [spec], creationContext, name);
@@ -33,6 +35,7 @@ export const generateNearleyGrammar = (description: NodeTextDescription<any>) : 
     
     let creationContext: GrammarCreationContext = {
         rulesByName: {},
+        charsetsSoFar: {},
         childRulesByName: {}
     }
 
@@ -74,7 +77,19 @@ const getRuleDefinitionForTextSpec = (component: NodeTextSpec, context: GrammarC
             console.error('RegExp not supported for nearley grammar');
         }
         else if (asAny.charset) {
+
             return `[${asAny.charset}]`;
+
+            // Attempt to stop multiple rules being created for identicalcharsets
+            // if (context.charsetsSoFar[asAny.charset]) {
+            //     return context.charsetsSoFar[asAny.charset];
+            // }
+
+            // const newRuleName = 'charset' + _.values(context.charsetsSoFar).length + 1;
+            // context.charsetsSoFar[asAny.charset] = newRuleName;
+            // context.rulesByName[newRuleName] = `newRuleName -> [${asAny.charset}]`;
+
+            // return newRuleName;
         }
         else if ((component as NodeTextDescription<any>).id) {
             // Assume it's a node text description object

@@ -43,10 +43,13 @@ export interface NodeTextController {
 
     events: NodeEvents,
     
-    handleComponentChange(index: number) : ComponentChangeResponse
+    handleComponentChange(indexes: number[], newValue: string) : ComponentChangeResponse
 
-    parent?: NodeTextController
+    parentController?: NodeTextController
     render: (parent: HTMLElement) => void,
+
+    indexInParent?: number,
+    indexInArray?: number,
 
     firstNode?: HTMLElement,
     lastNode?: HTMLElement,
