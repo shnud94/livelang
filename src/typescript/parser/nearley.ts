@@ -7,7 +7,7 @@ const _eval = require('eval');
 export const compileGrammar = (grammar: string) : Result<nearley.Grammar> => {
     try {
         const result = child_process.spawnSync(`nearleyc`, {input: grammar});
-        return {result: _eval(result.stdout.toString())};
+        return {result: _eval(result.stdout.toString(), true)};
     } catch (e) {
         return {error: e.message || e};
     }
@@ -16,7 +16,7 @@ export const compileGrammar = (grammar: string) : Result<nearley.Grammar> => {
 export const compileGrammarFromFile = (path: string) : Result<nearley.Grammar> => {
     try {
         const stdout = child_process.execSync(`nearleyc ${path}`);
-        return {result: _eval(stdout.toString())};
+        return {result: _eval(stdout.toString(), true)};
     } catch (e) {
         return {error: e.message || e};
     }

@@ -10,6 +10,17 @@ import * as View from '../view/index';
 import {NodeTextDescription, NodeTextSpec} from './index';
 
 const frontendId = 'javascript';
+const flat = (something: any) => {
+    if (Array.isArray(something)) {
+        const flattened = _.flatten(something);
+        if (flattened.every(e => typeof(e) === 'string')) {
+            return flattened.join('');
+        }
+        return flattened[0];
+    }
+    return something;
+}
+const assignParent = (node, parent) => {node.parent = parent; return node;}
 
 export const frontendDescription = {
     descriptorForNode<T extends AST.CodeNode>(node: T) : NodeTextDescription<T> {
@@ -17,14 +28,6 @@ export const frontendDescription = {
     }   
 };
 
-const identifier: NodeTextSpec = {all: [
-    {charset: 'a-zA-Z'},
-    {'*' : {charset: 'a-zA-Z0-9_-'}}
-]};
-const numericLiteral: NodeTextSpec = {all: [
-    {'*' : {charset: '0-9'}},
-    {'?' : {all: ['.', {'+' : {charset: '0-9'}}]}}
-]};
 const __ = {'*': {charset: ' \\t\\n\\v\\f'}};
 const ___ = {'+': {charset: ' \\t\\n\\v\\f'}};
 
@@ -47,6 +50,79 @@ export const prefixExpression: NodeTextDescription<AST.PrefixExpressionNode> = {
         expression
     ],
     componentsFromNode: node => [node.operator, expression.componentsFromNode(node.subExpression).join(' ')]
+}
+
+export const numericLiteral: NodeTextDescription<AST.ValueNode> = {
+    id: AST.CodeNodeTypes.numericLiteral,
+    updateNodeFromComponents: (components, prev) => {
+        const value = parseFloat(flat(components));
+        return {
+            type: AST.CodeNodeTypes.numericLiteral,
+            value: value,
+            parent: prev ? prev.parent : null
+        }
+    },
+    getTextSpecs() {
+        return [
+            {or: [
+                {'+' : {charset: '0-9'}},    
+                {all: [
+                        {'*' : {charset: '0-9'}},
+                        {all: ['.', {'+' : {charset: '0-9'}}]}
+                    ]
+                },    
+            ]}
+        ]
+    },
+    componentsFromNode: node => {
+        return [node.value.toString()]
+    }
+}
+
+export const stringLiteral: NodeTextDescription<AST.ValueNode> = {
+    id: AST.CodeNodeTypes.stringLiteral,
+    updateNodeFromComponents: (components, prev) => {
+        const value = flat(components);
+        return {
+            type: AST.CodeNodeTypes.stringLiteral,
+            value: value.substr(1, value.length - 2),
+            parent: prev ? prev.parent : null
+        }
+    },
+    getTextSpecs() {
+        return [
+            '"',
+            {'*':{charset: '^"'}},
+            '"'
+        ]
+    },
+    componentsFromNode: node => {
+        return [node.value.toString()]
+    }
+}
+
+export const identifier: NodeTextDescription<AST.ValueNode> = {
+    id: AST.CodeNodeTypes.identifier,
+    updateNodeFromComponents: (components, prev) => {
+
+        const value = flat(components);
+        return {
+            type: AST.CodeNodeTypes.identifier,
+            value: value,
+            parent: prev ? prev.parent : null
+        }
+    },
+    getTextSpecs() {
+        return [
+            {all: [
+                {charset: 'a-zA-Z'},
+                {'*' : {charset: 'a-zA-Z0-9_-'}}
+            ]}
+        ]
+    },
+    componentsFromNode: node => {
+        return [node.value.toString()]
+    }
 }
 
 export const postfixExpression: NodeTextDescription<AST.CallExpressionNode> = {
@@ -79,14 +155,21 @@ export const postfixExpression: NodeTextDescription<AST.CallExpressionNode> = {
 
 export const binaryExpression: NodeTextDescription<AST.BinaryExpressionNode> = {
     id: AST.CodeNodeTypes.binaryExpression,
-    updateNodeFromComponents: components => {
-        return {
-            type: AST.CodeNodeTypes.binaryExpression,
-            parent: null,
-            lhs: components[0] as AST.ExpressionNode,
-            operator: components[2] as string,
-            rhs: components[4] as AST.ExpressionNode
+    updateNodeFromComponents: (components, prev) => {
+        if (!prev) {
+            prev = {
+                type: AST.CodeNodeTypes.binaryExpression,
+                parent: null,
+                lhs: null,
+                operator: null,
+                rhs: null
+            }
         }
+
+        prev.lhs = assignParent(flat(components[0]) as AST.ExpressionNode, prev);
+        prev.rhs = assignParent(flat(components[4]) as AST.ExpressionNode, prev);
+        prev.operator = flat(components[2]) as string;
+        return prev;
     },
     getTextSpecs: () => ([
         expression,
@@ -106,11 +189,12 @@ export const binaryExpression: NodeTextDescription<AST.BinaryExpressionNode> = {
 
 export const expression: NodeTextDescription<AST.ExpressionNode> = {
     id: AST.CodeNodeTypes.expression,
-    updateNodeFromComponents: components => null as any, // TODO:
+    updateNodeFromComponents: components => _.flatten(components) as any, // TODO:
     getTextSpecs: () => [
         {or: [
             identifier,
             numericLiteral,
+            stringLiteral,
             prefixExpression,
             binaryExpression,            
         ]}

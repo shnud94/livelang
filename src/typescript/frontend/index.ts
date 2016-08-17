@@ -7,14 +7,20 @@ export type TextToCode<T extends AST.CodeNode> = (text: string) => T;
  * A specification for matching against text to create a parser grammar
  */
 export type NodeTextSpec = 
+    
+    // Should be parsed as single string or null
     string // Match a literal string
-    | NodeTextDescription<any>
     | {charset: string}
-    | {all: NodeTextSpec[]} // All in sequence
+    | {or: NodeTextSpec[]} // Choice of options
     | {'?': NodeTextSpec} // 0-1
+
+    // Should be parsed as array, inner elements follow their own rules
+    | {all: NodeTextSpec[]} // All in sequence
     | {'*': NodeTextSpec} // 0-inf
     | {'+': NodeTextSpec} // 1-inf
-    | {or: NodeTextSpec[]}; // Choice of options
+
+    // Should be parsed as a node, as that's what we're describing
+    | NodeTextDescription<any>    
 
 /**
  * A text component after being parsed or after being generated from a node

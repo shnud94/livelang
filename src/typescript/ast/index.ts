@@ -10,6 +10,10 @@ export namespace CodeNodeTypes {
     export const expression: CodeNodeType = "expression";
     export const literalNode: CodeNodeType = "literal";
     export const module: CodeNodeType = "module";
+
+    export const numericLiteral: CodeNodeType = "numericLiteral";
+    export const stringLiteral: CodeNodeType = "stringLiteral";
+    export const identifier: CodeNodeType = "identifier";
 }
 export const Types = CodeNodeTypes;
 
@@ -194,6 +198,10 @@ export interface IdentifierExpressionNode extends CodeNode {
 export interface PrefixExpressionNode extends CodeNode {
     operator: string,
     subExpression: ExpressionNode 
+}
+
+export interface ValueNode extends CodeNode {
+    value: any
 }
 export interface CallExpressionNode extends CodeNode {
     subExpression: ExpressionNode
