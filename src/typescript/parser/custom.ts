@@ -58,9 +58,9 @@ const generateChildRules = (context: GrammarCreationContext) => {
 } 
 
 const asNewRule = (rule: string, context: GrammarCreationContext, newRule: boolean, parentRule?: string) => {
-    if (!newRule) {
-        return rule;
-    }
+    // if (!newRule) {
+    //     return rule;
+    // }
     const newRuleName = getChildRuleName(context, parentRule)
     context.rulesByName[newRuleName] = rule; 
     return newRuleName;
@@ -175,12 +175,12 @@ export const newGetRuleDefinitionForTextSpec = (spec: NodeTextSpec, context: Gra
         // One of a choice of spec
         const or = asAny.or as NodeTextSpec[];
         const rule = '(' + or.map(spec => newGetRuleDefinitionForTextSpec(spec, context, depthFromNode)).join(' | ') + ')';
-        return asNewRule(rule, context, depthFromNode <= 1);
+        return asNewRule(rule, context, true);
     }
     else if (asAny['?']) {
         // All spec in a row
         const rule = newGetRuleDefinitionForTextSpec(_.values(asAny)[0], context, depthFromNode + 1, asAny) + ':?';
-        return asNewRule(rule, context, depthFromNode <= 1);
+        return asNewRule(rule, context, true);
     }
 
     // Following should return as arrays
@@ -188,15 +188,15 @@ export const newGetRuleDefinitionForTextSpec = (spec: NodeTextSpec, context: Gra
         // All components in a row
         const all = asAny.all as NodeTextSpec[];
         const rule = '(' + all.map(component => newGetRuleDefinitionForTextSpec(component, context, depthFromNode + 1)).join(' ') + ')';
-        return asNewRule(rule, context, depthFromNode <= 1);
+        return asNewRule(rule, context, true);
     }
     else if (asAny['*']) {
         const rule = newGetRuleDefinitionForTextSpec(_.values(asAny)[0], context, depthFromNode + 1, asAny) + ':*';
-        return asNewRule(rule, context, depthFromNode <= 1);
+        return asNewRule(rule, context, true);
     }
     else if (asAny['+']) {
         const rule = newGetRuleDefinitionForTextSpec(_.values(asAny)[0], context, depthFromNode + 1, asAny) + ':+';
-        return asNewRule(rule, context, depthFromNode <= 1);
+        return asNewRule(rule, context, true);
     }    
 
     // Should return as a node
@@ -217,7 +217,7 @@ export const newGetRuleDefinitionForTextSpec = (spec: NodeTextSpec, context: Gra
         ).join(' ') + ' ' + callFunction(description.updateNodeFromComponents, ['data'], context);
 
         context.rulesByName[description.id] = rule;
-        return asNewRule(rule, context, depthFromNode <= 1);
+        return asNewRule(rule, context, false);
     }
     
 };

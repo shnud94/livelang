@@ -137,7 +137,7 @@ export interface StructDefinitionNode {
 
 export interface DeclarationNode extends CodeNode {
     mutable: boolean
-    identifier: string
+    identifier: ValueNode,
     valueExpression?: ExpressionNode,
     typeExpression?: ExpressionNode
 }
@@ -192,9 +192,6 @@ export interface ExpressionNode extends CodeNode {
     expression: PrefixExpressionNode | BinaryExpressionNode | CallExpressionNode
 }
 
-export interface IdentifierExpressionNode extends CodeNode {
-    identifier: string    
-}
 export interface PrefixExpressionNode extends CodeNode {
     operator: string,
     subExpression: ExpressionNode 

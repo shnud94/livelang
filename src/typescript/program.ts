@@ -15,7 +15,11 @@ export class Program {
                 {
                     type: AST.CodeNodeTypes.declaration,
                     mutable: true,
-                    identifier: 'myVar',
+                    identifier: {
+                        type: AST.CodeNodeTypes.identifier,
+                        value: 'var',
+                        parent: null    
+                    },
                     valueExpression: null,
                     typeExpression: null,
                     parent: null
@@ -24,7 +28,11 @@ export class Program {
                 {
                     type: AST.CodeNodeTypes.declaration,
                     mutable: true,
-                    identifier: 'myOtherVar',
+                    identifier: {
+                        type: AST.CodeNodeTypes.identifier,
+                        value: 'var1',
+                        parent: null    
+                    },
                     valueExpression: null,
                     typeExpression: null,
                     parent: null
@@ -33,7 +41,11 @@ export class Program {
                 {
                     type: AST.CodeNodeTypes.declaration,
                     mutable: true,
-                    identifier: 'hereTakeMyLastVar',
+                    identifier: {
+                        type: AST.CodeNodeTypes.identifier,
+                        value: 'var2',
+                        parent: null    
+                    },
                     valueExpression: null,
                     typeExpression: null,
                     parent: null
