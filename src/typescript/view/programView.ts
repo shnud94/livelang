@@ -56,9 +56,7 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
             if (displayOptions) {
                 // Do stuff
             }
-            if ($(el).text()) {
-                $(el).css({marginRight: '0.5em'});
-            }
+            $(el).html($(el).html().replace(/ /g, '&nbsp;'));
 
             const $before = $(el).prev(':not(._layout)');
             if ($before.length == 0) {
@@ -85,17 +83,23 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
         if (direction === 'left' || direction === 'right') {
             let dirNum = direction === 'left' ? -1 : 1;
 
-            if (fraction === 0 && dirNum === -1 && $(element).prev()[0]) {
+            if (fraction === 0 && dirNum === -1) {
                 
-                event.preventDefault();
-                $(element).prev().focus();
-                util.setCaretFraction($(element).prev()[0] as HTMLElement, 1);
+                const prev = util.prevUntil($(element), el => el.text().length !== 0);
+                if (prev[0]) {
+                    prev.focus();
+                    event.preventDefault();
+                    util.setCaretPosition(prev[0] as HTMLElement, prev.text().length - 1);
+                }
             }
-            else if (fraction === 1 && dirNum === 1 && $(element).next()[0]) {
+            else if (fraction === 1 && dirNum === 1) {
                 
-                event.preventDefault();
-                $(element).next().focus();
-                util.setCaretFraction($(element).next()[0] as HTMLElement, 0);
+                const next = util.nextUntil($(element), el => el.text().length !== 0);
+                if (next) {
+                    next.focus();
+                    event.preventDefault();
+                    util.setCaretPosition(next[0] as HTMLElement, 1);
+                }             
             }
         }
         else if (direction === 'up' || direction === 'down') {
@@ -158,7 +162,6 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
         const data = $target.data() as DOMData;
         const value = $target.text();
 
-        console.log(event.key.trim().length);
         if (event.key.trim().length === 1) {
 
             // Will be true if the node represents a text part of a component

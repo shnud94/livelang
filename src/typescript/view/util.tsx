@@ -8,6 +8,26 @@ function val(el: HTMLElement) : string {
     return el.innerText;
 }
 
+export function prevUntil(src: JQuery, callback: ($el: JQuery) => boolean) {
+    if (callback(src.prev())) {
+        return src.prev();
+    }
+    else if (src.prev()) {
+        return prevUntil(src.prev(), callback);
+    }
+    return $();
+}
+
+export function nextUntil(src: JQuery, callback: ($el: JQuery) => boolean) {
+    if (callback(src.next())) {
+        return src.next();
+    }
+    else if (src.prev()) {
+        return nextUntil(src.next(), callback);
+    }
+    return $();
+}
+
 export function getCaretOffset(el: HTMLElement) : {left: number, top: number, height: number} {
     return ($(el) as any).caret('offset') as any;
 }
