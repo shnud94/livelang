@@ -1,6 +1,7 @@
 import {NodeTextDescription, NodeTextSpec} from '../frontend/index';
 import * as nearley from './nearley';
 import * as _ from 'underscore';
+import {Result} from '../util'
 
 /**
  * Object used throughout the conversion to keep track of state
@@ -112,19 +113,32 @@ const generateNearleyRulesFromTextSpecs = (name: string, components: NodeTextSpe
     return name;
 }
 
-export const parseSpec = (spec: NodeTextSpec, input: string) : any => {
+export const parseSpec = (spec: NodeTextSpec, input: string) : Result<any> => {
 
-    const creationContext = getNewContext();    
-    const rule = newGetRuleDefinitionForTextSpec(spec, creationContext, 0);
-    
-    let grammar = "@{% ";
-    
-    (window as any)._livelangNearley = creationContext.functions;
-    _.keys(creationContext.functions).forEach(key => {
-        grammar += `function ${key}(data) {return window._livelangNearley.${key}(data)} `
-    });
-    grammar += "%}\n\n";
-    grammar += generateChildRules(creationContext);
+    let grammar = "";
+    if (typeof(spec) === 'string') {
+        // the rule generated otherwise would just be a string rather than a rule name,
+        // just return a simple match rule
+        grammar += `rule -> "${sanitizeString(spec)}"`;
+    }
+    else {
+        const creationContext = getNewContext();    
+        const rule = newGetRuleDefinitionForTextSpec(spec, creationContext, 0);
+        
+        grammar += "@{% ";
+        
+        (window as any)._livelangNearley = creationContext.functions;
+        _.keys(creationContext.functions).forEach(key => {
+            grammar += `function ${key}(data) {return window._livelangNearley.${key}(data)} `
+        });
+        grammar += "%}\n\n";
+
+        // Make sure our first rule comes first
+        grammar += `${rule} -> ${creationContext.rulesByName[rule]}\n\n`;
+        delete creationContext.rulesByName[rule];
+
+        grammar += generateChildRules(creationContext);
+    }
 
     const compiled = nearley.compileGrammar(grammar);
     return nearley.parse(compiled.result, input);
@@ -157,13 +171,15 @@ export const callFunction = (func: any, args: Array<any>, context: GrammarCreati
     return `{% function(data) {return ${funcName}(${args.join(', ')});} %}`;
 };
 
+export const sanitizeString = str => str.replace(/"/g, '\\"'); 
+
 export const newGetRuleDefinitionForTextSpec = (spec: NodeTextSpec, context: GrammarCreationContext, depthFromNode: number, parentRule?: NodeTextSpec) : string => {
     const asAny = spec as any;
 
     // Should return as a single element or null
     if (typeof(spec) === 'string') {
         // String literal
-        return `"${(spec as string).replace(/"/g, '\\"')}"`;
+        return `"${sanitizeString(spec as string)}"`;
     }
     else if (spec instanceof RegExp) {
         console.error('RegExp not supported for nearley grammar');
@@ -175,7 +191,7 @@ export const newGetRuleDefinitionForTextSpec = (spec: NodeTextSpec, context: Gra
         // One of a choice of spec
         const or = asAny.or as NodeTextSpec[];
         const rule = '(' + or.map(spec => newGetRuleDefinitionForTextSpec(spec, context, depthFromNode)).join(' | ') + ')';
-        return asNewRule(rule, context, true);
+        return asNewRule(rule, context, depthFromNode <= 1);
     }
     else if (asAny['?']) {
         // All spec in a row

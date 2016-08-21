@@ -4,7 +4,7 @@ import * as $ from 'jquery';
 import * as util from './util';
 import {EventSource} from '../util/events';
 import * as Frontend from '../frontend/index';
-import {NodeTextDescription} from '../frontend/index';
+import {NodeTextDescription, NodeTextComponent} from '../frontend/index';
 import * as js from '../frontend/javascriptStyle';
 
 export type ComponentDescription = string | NodeTextController;
@@ -41,9 +41,12 @@ export interface NodeEvents {
 }
 export interface NodeTextController {
 
+    node: AST.CodeNode,
+    description: NodeTextDescription<any>
     events: NodeEvents,
     
-    handleComponentChange(indexes: number[], newValue: string) : ComponentChangeResponse
+    handleChildComponentChange(indexes: number[], newValue: NodeTextComponent) : ComponentChangeResponse
+    handleComponentChange(newValue: NodeTextComponent) : ComponentChangeResponse
 
     parentController?: NodeTextController
     render: (parent: HTMLElement) => void,
@@ -52,8 +55,5 @@ export interface NodeTextController {
     indexInArray?: number,
 
     firstNode?: HTMLElement,
-    lastNode?: HTMLElement,
-
-    description: NodeTextDescription<any>
+    lastNode?: HTMLElement,    
 }
-

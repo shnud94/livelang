@@ -2,18 +2,23 @@ import {EventSource} from '../util/events';
 
 export type CodeNodeType = string;
 export namespace CodeNodeTypes {
+    export const module: CodeNodeType = "module";
+
     export const declaration: CodeNodeType = "declaration";
+    export const assignment: CodeNodeType = "assignment";
+    export const expression: CodeNodeType = "expression";
+
     export const callExpression: CodeNodeType = "callExpression";
     export const prefixExpression: CodeNodeType = "prefixExpression";
     export const postfixExpression: CodeNodeType = "postfixExpression";
     export const binaryExpression: CodeNodeType = "binaryExpression";
-    export const expression: CodeNodeType = "expression";
-    export const literalNode: CodeNodeType = "literal";
-    export const module: CodeNodeType = "module";
+    
+    export const identifier: CodeNodeType = "identifier";
 
+    export const literalNode: CodeNodeType = "literal";
     export const numericLiteral: CodeNodeType = "numericLiteral";
     export const stringLiteral: CodeNodeType = "stringLiteral";
-    export const identifier: CodeNodeType = "identifier";
+    export const arrayLiteral: CodeNodeType = "arrayLiteral";
 }
 export const Types = CodeNodeTypes;
 
@@ -135,6 +140,11 @@ export interface StructDefinitionNode {
     
 }
 
+export interface AssignmentNode extends CodeNode {
+    identifier: ValueNode,
+    valueExpression?: ExpressionNode,
+}
+
 export interface DeclarationNode extends CodeNode {
     mutable: boolean
     identifier: ValueNode,
@@ -209,9 +219,6 @@ export interface BinaryExpressionNode extends CodeNode {
     operator: string,
     rhs: ExpressionNode
 }
-export interface StatementNode extends CodeNode {
-
-}
 
 export type ModuleChild = DeclarationNode | ExpressionNode;
 export interface ModuleNode extends CodeNode {
@@ -224,7 +231,7 @@ export interface ModuleNode extends CodeNode {
     children: ModuleChild[]
 
     // IDEA: Short name and a fully qualified name for imports etc.
-    identifier: string
+    identifier: ValueNode
 
     // IDEA: Some stuff to setup this module for the evironment if it calls code from another language/runtime so that the module
     // can be treated as if normal

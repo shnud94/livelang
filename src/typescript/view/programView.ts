@@ -5,9 +5,11 @@ import * as util from './util';
 import {EventSource} from '../util/events';
 import * as Frontend from '../frontend/index';
 import * as js from '../frontend/javascriptStyle';
-import {NodeEvents, NodeTextController, ComponentDescription} from './index';
+import {NodeEvents, NodeTextController, ComponentDescription, ComponentChangeResponse} from './index';
 import {basicController} from './nodeController';
+import * as parser from '../parser/custom';
 import * as _ from 'underscore';
+import {Result} from '../util';
 
 export type ControllerProvider = (node: AST.CodeNode) => NodeTextController;
 export interface DOMData {
@@ -16,34 +18,26 @@ export interface DOMData {
     index: number
 }
 
+export const getDOMData = (element: JQuery | HTMLElement) : DOMData => {
+    return $(element).data() as DOMData;
+}
+
 export const mountProgramView = (program: Program, dom: HTMLElement) => {
 
     const container = $('<div>').addClass('code').appendTo(dom);
     const rootController = basicController(program.data);
-    rootController.render(container[0]);
 
-    const layoutRange = (start: HTMLElement, end: HTMLElement) => {
+    const render = () => {
+        $(container).empty();
+        rootController.render(container[0]);
+        layoutRange(container.children()[0] as HTMLElement, container.children().last()[0] as HTMLElement);
+    };
+    render();    
+
+    function layoutRange(start: HTMLElement, end: HTMLElement) {
 
         let tabLevel = 0;
-
-        const getElementsInRange = (start: HTMLElement, end: HTMLElement) => {
-            if (start === end) {
-                return [start];
-            }
-
-            const nodes = [start];
-            let next = start;
-            do {
-                next = $(next).next()[0];
-                if (next) {
-                    nodes.push(next);  
-                }             
-            } while (next && next !== end);
-
-            return nodes;
-        }
-        
-        getElementsInRange(start, end).forEach(el => {
+        util.getElementsInRange(start, end).forEach(el => {
             const getDisplayOptions = (el) => {
                 const data = $(el).data() as DOMData;
                 if (data.componentController && data.componentController.description && data.componentController.description.displayOptions) {
@@ -58,6 +52,11 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
             }
             $(el).html($(el).html().replace(/ /g, '&nbsp;'));
 
+            const content = $(el).html();
+            if (content.indexOf('\n') >= 0) {
+                $('<br />').insertAfter(el).addClass('_layout');
+            }            
+
             const $before = $(el).prev(':not(._layout)');
             if ($before.length == 0) {
                 return;
@@ -71,31 +70,28 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
                 }
                 if (beforeDisplayOptions.breaksLine) {
                     $('<br />').insertBefore(el).addClass('_layout');
-                    $(el).css({'marginLeft': `${tabLevel * 2}em`});
+                    // $(el).css({'marginLeft': `${tabLevel * 2}em`});
                 }                 
             }
         });
     };
-    layoutRange(container.children()[0] as HTMLElement, container.children().last()[0] as HTMLElement);
 
-    const handleArrow = (event: KeyboardEvent, direction: string, element: HTMLElement, position: number, fraction: number) => {
+    function handleArrow(event: KeyboardEvent, direction: string, element: HTMLElement, position: number, fraction: number) {
 
         if (direction === 'left' || direction === 'right') {
             let dirNum = direction === 'left' ? -1 : 1;
 
             if (fraction === 0 && dirNum === -1) {
-                
-                const prev = util.prevUntil($(element), el => el.text().length !== 0);
+                const prev = $(util.firstPrev($(element), $el => $el.hasClass('node') && $el.text().length > 0));
                 if (prev[0]) {
                     prev.focus();
                     event.preventDefault();
-                    util.setCaretPosition(prev[0] as HTMLElement, prev.text().length - 1);
+                    util.setCaretPosition(prev[0] as HTMLElement, $(prev).text().length - 1);
                 }
             }
             else if (fraction === 1 && dirNum === 1) {
-                
-                const next = util.nextUntil($(element), el => el.text().length !== 0);
-                if (next) {
+                const next = $(util.firstNext($(element), $el => $el.hasClass('node') && $el.text().length > 0));
+                if (next[0]) {
                     next.focus();
                     event.preventDefault();
                     util.setCaretPosition(next[0] as HTMLElement, 1);
@@ -162,53 +158,48 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
         const data = $target.data() as DOMData;
         const value = $target.text();
 
-        if (event.key.trim().length === 1) {
+        const results: Result<any>[] = [];
+        let controller = data.componentController;
+        const indexes = [data.index];
+        
+        while (controller) {
 
-            // Will be true if the node represents a text part of a component
-            if (data.componentController) {
-                const response = data.componentController.handleComponentChange([data.index], value);
-                if (response.errors.length > 0) {
-                    console.log(response.errors);
-                    $target.addClass('-has-errors');
-                }
-                else {
-                    $target.removeClass('-has-errors');
-                }
-                if (response.completions.length > 0) {
-                    console.log(response.completions);
-                }                    
-            }
-            else {
-                const previous = $target.prev('.node');
-                const data = previous.data() as DOMData;
-                
-                const results = [];
-                let controller = data.componentController;
-                const indexes = [data.index + 1];
-                
-                while (controller) {
+            const index = indexes[0];
+            const specs = controller.description.getTextSpecs();
+            const parseResult = parser.parseSpec(specs[index], value);
+            results.push(parseResult);
 
-                    const index = indexes[0];
-                    // Only give the controller the chance to intercept this new 
-                    // content here if its within its component bounds
-                    if (index < controller.description.getTextSpecs().length) {
-                        const result = controller.handleComponentChange(indexes, value);
-                        results.push(results);
-                        
-                        if (result.success) {
-                            // TODO:
-                        }
-                    }                    
-                    
-                    if (controller.indexInArray) {
-                        indexes.unshift(controller.indexInArray);
-                    }
-                    indexes.unshift(controller.indexInParent);
-                    controller = controller.parentController;
+            if (parseResult.result) {
+                const changeResult = controller.handleChildComponentChange(indexes, parseResult.result);                    
+                if (changeResult.success) {
+                    render();
+                    return;
+                }
+            }      
+
+            const controllerNodeRange = getControllerNodeRange(event.target as HTMLElement, controller);
+            const textInRange = util.textInNodeRange(controllerNodeRange[0], controllerNodeRange.last());
+            const wholeParseResult = parser.parseSpec(controller.description, textInRange);
+            results.push(wholeParseResult);
+
+            if (wholeParseResult.result) {
+                const changeResult = controller.handleComponentChange(wholeParseResult.result);
+                if (changeResult.success) {
+                    render();
+                    return;
                 }
             }
+
+            if (controller.indexInArray) {
+                indexes.unshift(controller.indexInArray);
+            }
+            indexes.unshift(controller.indexInParent);
+            controller = controller.parentController;
         }
-    }, 200);
+
+        results.forEach(result => console.error(result.error));
+     
+    }, 500);
 
     $(dom).on({
         'keydown': (event: KeyboardEvent) => {
@@ -218,7 +209,7 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
             const pos = util.getCaretPosition(focused);
             const fraction = util.getCaretFraction(focused);
 
-            if (code === 13 || code === 32) {
+            if (code === 13) {
 
                 if ($(focused).hasClass('-new-input')) {
                     return;
@@ -263,3 +254,30 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
         'change': keyup
     });
 }
+
+export const hasControllerAsParent = (start: NodeTextController, search: NodeTextController) => {
+    if (!start) return false;
+    if (start === search) return true;
+    return start.parentController === search || hasControllerAsParent(start.parentController, search);
+}
+
+export const getControllerNodeRange = (start: HTMLElement, controller: NodeTextController) : HTMLElement[] => {
+    if (getDOMData(start).componentController !== controller) {
+        return [];
+    }
+
+    let nodes = [start];
+    let check = ($el: JQuery) => {
+        if (!$el.hasClass('node')) {
+            return true;
+        }
+
+        const hasController = getDOMData($el).componentController != null;
+        return hasController && hasControllerAsParent(getDOMData($el).componentController, controller)
+    }
+
+    let before = util.prevWhile($(start), check).filter(el => $(el).hasClass('node')); 
+    let after = util.nextWhile($(start), check).filter(el => $(el).hasClass('node'));
+    return [].concat(before, nodes, after); 
+}
+

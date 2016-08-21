@@ -20,7 +20,20 @@ const flat = (something: any) => {
     }
     return something;
 }
-const assignParent = (node, parent) => {node.parent = parent; return node;}
+const flatten = (something: any) => {
+    if (Array.isArray(something)) {
+        const flattened = _.flatten(something);
+        if (flattened.every(e => typeof(e) === 'string')) {
+            return flattened.join('');
+        }
+        return flattened;
+    }
+    return something;
+}
+const assignParent = (node, parent) => {
+    if (typeof(node) !== 'object') debugger;
+    node.parent = parent; return node;
+}
 
 export const frontendDescription = {
     descriptorForNode<T extends AST.CodeNode>(node: T) : NodeTextDescription<T> {
@@ -28,8 +41,8 @@ export const frontendDescription = {
     }   
 };
 
-const __ = {'*': {charset: ' \\t\\n\\v\\f'}};
-const ___ = {'+': {charset: ' \\t\\n\\v\\f'}};
+const __ = {'*': {charset: ' \xA0\\t\\n\\v\\f'}};
+const ___ = {'+': {charset: ' \xA0\\t\\n\\v\\f'}};
 
 function nodeTextualDescriptorForType(type: AST.CodeNodeType) : NodeTextDescription<any> {
     return descriptors[type] as any; 
@@ -80,20 +93,23 @@ export const stringLiteral: NodeTextDescription<AST.ValueNode> = {
         ]
     },
     componentsFromNode: node => {
-        return [node.value.toString()]
+        return ['"' + node.value.toString() + '"']
     }
 }
 
 export const identifier: NodeTextDescription<AST.ValueNode> = {
     id: AST.CodeNodeTypes.identifier,
     updateNodeFromComponents: (components, prev) => {
-
-        const value = flat(components);
-        return {
-            type: AST.CodeNodeTypes.identifier,
-            value: value,
-            parent: prev ? prev.parent : null
+        if (!prev) {
+            prev = {
+                type: AST.CodeNodeTypes.identifier,
+                value: null,
+                parent: prev ? prev.parent : null
+            }
         }
+
+        prev.value = flat(components);
+        return prev;
     },
     getTextSpecs() {
         return [
@@ -134,6 +150,48 @@ export const prefixExpression: NodeTextDescription<AST.PrefixExpressionNode> = {
         node.operator, 
         node.subExpression
     ]
+}
+
+export const arrayLiteral: NodeTextDescription<AST.ValueNode> = {
+    id: AST.CodeNodeTypes.arrayLiteral,
+    updateNodeFromComponents: (components, prev) => {
+        
+        if (!prev) {
+            prev = {
+                parent: null,
+                value: null,
+                type: AST.CodeNodeTypes.arrayLiteral
+            }
+        }
+
+        const elements = flatten(components[1]).filter(el => typeof(el) === 'object') as AST.ExpressionNode[]; 
+        prev.value = elements.map(e => assignParent(e, prev));
+        return prev;
+    },
+    getTextSpecs() {
+        return [
+            '[',
+            {'?' : {all: [
+                expression,
+                {'*' : {all: [',', __, expression]}}
+            ]}},            
+            ']'
+        ]
+    },
+    componentsFromNode: node => {
+        return [
+            '[',
+            flatten(node.value.map((value, index, array) => {
+               if (index > 0) {
+                return [', ', value] as any
+               } 
+               else {
+                   return [value] as any
+               }
+            })),
+            ']'
+        ]
+    }
 }
 
 export const postfixExpression: NodeTextDescription<AST.CallExpressionNode> = {
@@ -219,12 +277,47 @@ export const expression: NodeTextDescription<AST.ExpressionNode> = {
             identifier,
             numericLiteral,
             stringLiteral,
+            arrayLiteral,
             prefixExpression,
             binaryExpression,            
         ]}
     ],
     componentsFromNode: node => [
         node
+    ]
+};
+
+export const assignment: NodeTextDescription<AST.AssignmentNode> = {
+    id: AST.CodeNodeTypes.assignment,
+    updateNodeFromComponents: (components, prev) => {
+        
+        if (!prev) {
+            prev = {
+                type: AST.CodeNodeTypes.assignment,
+                parent: null,
+                identifier: null,
+                valueExpression: null
+            };
+        }
+
+        prev.identifier = assignParent(flat(components[0]) as AST.ValueNode, prev);
+        prev.valueExpression = assignParent(flat(components[4]) as AST.ExpressionNode, prev);
+        
+        return prev;
+    },
+    getTextSpecs: () => [
+        identifier,
+        __,
+        '=',
+        __,
+        expression
+    ],
+    componentsFromNode: node => [
+        node.identifier,
+        ' ',
+        '=',
+        ' ',
+        node.valueExpression
     ]
 };
 
@@ -243,15 +336,15 @@ export const declaration: NodeTextDescription<AST.DeclarationNode> = {
             };
         }
 
-        prev.mutable = flat(components[0]) === 'var';
-        prev.identifier = assignParent(flat(components[1]) as AST.ValueNode, prev);
+        prev.mutable = (flat(components[0]) || '').trim() === 'var';
+        prev.identifier = assignParent(flat(components[2]) as AST.ValueNode, prev);
         
-        const maybeTypeExpression = (flat(components[3]) || []) [2] as AST.ExpressionNode;
+        const maybeTypeExpression = (flat(components[4]) || []) [2] as AST.ExpressionNode;
         if (maybeTypeExpression) {
             prev.typeExpression = assignParent(maybeTypeExpression, prev);
         }
 
-        const maybeValueExpression = (flat(components[5]) || []) [2] as AST.ExpressionNode;
+        const maybeValueExpression = (flat(components[6]) || []) [2] as AST.ExpressionNode;
         if (maybeValueExpression) {
             prev.valueExpression = assignParent(maybeValueExpression, prev);
         }
@@ -259,24 +352,22 @@ export const declaration: NodeTextDescription<AST.DeclarationNode> = {
         return prev;
     },
     getTextSpecs: () => [
-        {'?': {all : [
-            {or: ['let', 'var']},
-            ___,
-        ]}},
+        {or: ['let', 'var']},
+        ___,
         identifier,
         __,
         {'?': {all: [':', __, expression]}}, // Type expression,
         __,
         {'?': {all: ['=', __, expression]}}, // Initial assignment
     ],
-    displayOptions: () => [null, null, null, null, null, null, {breaksLine: true}],
+    displayOptions: () => [null, null, null, null, null, null, null],
     componentsFromNode: node => [
         node.mutable ? 'var' : 'let',
         ' ',
         node.identifier,
-        '',
+        (node.typeExpression || node.valueExpression) ? ' ' : '',
         node.typeExpression ? [': ', node.typeExpression] : null,
-        ' ',
+        node.typeExpression ? ' ' : '',
         node.valueExpression ? ['= ', node.valueExpression] : null,
     ]
 };
@@ -285,16 +376,22 @@ export const theModule: NodeTextDescription<AST.ModuleNode> = {
     id: AST.CodeNodeTypes.module,
     getTextSpecs: () => [
         'module', // 0
-        identifier, // 1
-        '{', // 2
-        {'*': {all: [ // 3
-            {or: [expression, declaration]},  
-            ';'
+        ___,
+        identifier, // 2
+        ___,
+        '{', // 4,
+        __,
+        {'*': {all: [ // 6
+            {or: [assignment, expression, declaration]},
+            __,  
+            ';',
+            __
         ]}},
-        '}' // 4
+        __,
+        '}' // 8
     ],
     displayOptions() {
-        return [null, null, {breaksLine:true, tabsNextLine: 1}, {breaksLine: true, tabsNextLine: -1}, null]
+        return [null, null, null, null, null, null, null, {breaksLine: true, tabsNextLine: -1}, null]
     },
     updateNodeFromComponents: (components, prev) => {
         let node = prev;
@@ -308,15 +405,21 @@ export const theModule: NodeTextDescription<AST.ModuleNode> = {
             };
         }
 
-        node.identifier = components[1] as string;
-        node.children = components[3] as AST.ModuleChild[];
+        node.children = (flat(components[6]) as Array<any>).filter(child => typeof(child) !== 'string');
+        node.identifier = flat(components[2]) as AST.ValueNode;
         return node;
     },
     componentsFromNode: node => [
         'module',
+        ' ',
         node.identifier,
+        ' ',
         '{',
-        node.children,
+        '\n',
+        node.children.map(child => {
+            return [child, ';\n']
+        }) as any,
+        ' ',
         '}'        
     ]
 };
@@ -327,135 +430,9 @@ export const descriptors: any = {
     [AST.CodeNodeTypes.prefixExpression] : prefixExpression,
     [AST.CodeNodeTypes.identifier] : identifier,
     [AST.CodeNodeTypes.binaryExpression] : binaryExpression,
-    [AST.CodeNodeTypes.declaration] : declaration
+    [AST.CodeNodeTypes.declaration] : declaration,
+    [AST.CodeNodeTypes.numericLiteral] : numericLiteral,
+    [AST.CodeNodeTypes.stringLiteral] : stringLiteral,
+    [AST.CodeNodeTypes.arrayLiteral] : arrayLiteral,
+    [AST.CodeNodeTypes.assignment] : assignment,
 };
-
-
-// const parseTreeByNode: { [key: string]: (stream: CharStream) => ParseResult<any> }  = {
-
-//     [AST.CodeNodeTypes.module]: stream => {
-
-//         // TODO:
-//         return null as any;
-//     },
-//     [AST.CodeNodeTypes.func]: stream => {
-//         let confidence = 0;
-
-//         const maybeFunctionKeyword = parseIdentifier(stream);
-//         confidence += fuzzyMatch(maybeFunctionKeyword.result || '', 'function');
-//         if (confidence === 0) {
-//             return {
-//                 confidence: 0,
-//                 complete: false
-//             }
-//         }
-
-//         let functionNode: AST.FunctionNode = {
-//             typeIdentifier: types.BuiltInTypes.uint16,
-//             type: AST.CodeNodeTypes.func,
-//             identifier: '',
-//             children: [],
-//             parent: null
-//         };
-
-//         const identifier = parseIdentifier(stream);
-//         if (identifier.complete) {
-//             functionNode.identifier = identifier.result;
-//         }
-//         confidence += identifier.confidence;
-        
-//         confidence += parseLiteral(stream, '(') ? 1 : 0;
-//         confidence += parseLiteral(stream, ')') ? 1 : 0;
-//         confidence += parseLiteral(stream, '{') ? 1 : 0;
-
-//         // TODO: parse function body
-
-//         confidence += parseLiteral(stream, '}') ? 1 : 0;    
-
-//         return {
-//             result: functionNode,
-//             complete: false,
-//             confidence: confidence 
-//         };
-//     },
-//     [AST.CodeNodeTypes.typeDeclaration]: stream => {
-//         return null as any;
-//     },
-//     [AST.CodeNodeTypes.variableDeclaration] : stream => {
-//         return null as any;
-//     }
-// }
-
-
-// export const controllerProvider = (node: AST.CodeNode) => controllersByNode[node.type](node);
-// export const controllersByNode: { [key: string]: (node: AST.CodeNode) => ComponentController } = {
-
-//     /*
-//         Process is as follows:
-
-//             1. Initial render
-//             2. User types change
-//             3. Controller receives change, returns response
-//             4. Calls appropriate event if necessary
-//             5. Appropriate event fires on renderer, re-renders if necessary
-//             6. Back to 1
-//     */    
-//     [AST.CodeNodeTypes.module]: (node: AST.ModuleNode) => {
-
-//         const events = View.createBaseComponentControllerEvents();
-
-//         return {
-//             events: events,
-//             handleNewInput(value, prev) {
-
-//                 if (prev.id !== '}') {
-//                     return {
-//                         errors: ['fuck off'],
-//                         success: false,
-//                         completions: []
-//                     }
-//                 }
-
-//                 const parseResult = parseInModule(charStreamFromString(value));
-//                 return {
-//                     errors: [],
-//                     success: false,
-//                     completions: [{completionText: parseResult.result.type, onComplete: () => {}}] // TODO:
-//                 }
-//             },
-//             handleComponentChange(value, component) {
-
-//                 if (component.text !== value) {
-//                     return {
-//                         errors: ['fuck you'],
-//                         success: false,
-//                         completions: []
-//                     }                    
-//                 }
-//                 if (component.id === 'module' && value !== 'module') {
-//                     return {
-//                         errors: ['fuck you'],
-//                         success: false,
-//                         completions: []
-//                     }                    
-//                 }
-
-//                 return {
-//                     errors: [],
-//                     success: false,
-//                     completions: []
-//                 }
-//             },
-//             components() {
-//                 return [
-//                     { text: 'module' },
-//                     { text: node.identifier },
-//                     { text: '{' },
-//                     { children: node.children.map(controllerForNode) },
-//                     { text: '}' }
-//                 ];
-//             }
-//         }
-//     }
-// }
-// const controllerForNode = (node: AST.CodeNode) => controllersByNode[node.type](node);

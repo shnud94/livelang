@@ -23,63 +23,6 @@ const createBaseComponentControllerEvents = () : NodeEvents => {
     }
 }
 
-const verifyAgainstStringSpec = (input: string, spec: string, parent: NodeTextDescription<any>) : Result<any> => {
-
-    const grammar = parserCustom.generateNearleyGrammarFromTextSpec('rule', spec);
-    const compiled = nearley.compileGrammar(grammar);
-
-    if (!compiled.result) {
-        return compiled.error;
-    }
-
-    const parseResult = nearley.parse(compiled.result, input);
-    if (parseResult.result) {
-        return {
-            result: _.flatten(parseResult.result).join('')
-        };
-    }
-    else {
-        return {
-            error: parseResult.error
-        }
-    }
-}
-
-const verifyAgainstTextSpec = (input: string, spec: NodeTextSpec, parent: NodeTextDescription<any>) : Result<any> => {
-
-    if (typeof(spec) === 'string') {
-        verifyAgainstStringSpec(input, spec as string, parent);
-    }
-    else if ((spec as any).getTextSpecs) {
-        // We've got a node text description, we expect a node back
-
-        const handleChildTextDefinition = (definitions: NodeTextSpec) => {
-            
-            // still wanna parse the whole thing with one grammar, but rules that are NodeTextDescriptions need to have
-            // transform functions that will 
-        }
-
-        // or skip this, convert everything at the end?
-    }
-    const grammar = parserCustom.generateNearleyGrammarFromTextSpec('rule', spec);
-    const compiled = nearley.compileGrammar(grammar);
-    if (!compiled.result) {
-        return compiled.error;
-    }
-
-    const parseResult = nearley.parse(compiled.result, input);
-    if (parseResult.result) {
-        return {
-            result: _.flatten(parseResult.result).join('')
-        };
-    }
-    else {
-        return {
-            error: parseResult.error
-        }
-    }
-}
-
 /**
  * Resuable general controller for all nodes
  */
@@ -91,23 +34,20 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
     // of many
     let startComponentNodesByIndex: {[key: number] : HTMLElement} = {};
 
-    let thisController = {
+    let thisController: NodeTextController = {
+        node: node,
         events: createBaseComponentControllerEvents(),
-        handleComponentChange: (index, newComponentText) => {
-            
-            const result = verifyAgainstTextSpec(newComponentText, nodeDescription.getTextSpecs()[index[0]], nodeDescription);
-
-            // if invalid, return errors
-            if (result.error) {
-                return {
-                    errors: [result.error],
-                    success: false,
-                    completions: []
-                }
+        handleComponentChange: (newValue) => {
+            node = newValue as any;
+            return {
+                errors: [],
+                success: true,
+                completions: []
             }
-
+        },
+        handleChildComponentChange: (indexes, newComponent) => {
             const currentComponents = nodeDescription.componentsFromNode(node);
-            currentComponents[index] = result.result;
+            currentComponents[indexes[0]] = newComponent;
             nodeDescription.updateNodeFromComponents(currentComponents, node);
             
             return {
@@ -137,6 +77,10 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
                         .text(asString).appendTo(parent);
 
                     startComponentNodesByIndex[index] = domNode[0];
+                }
+                else if (Array.isArray(desc)) {
+                    const asArray = desc as NodeTextComponent[];
+                    asArray.forEach((each, index) => processDescription(each, index, array, indexInArray));
                 }
                 else {
                     // Assume it's a node, grab its controller and render afterwards

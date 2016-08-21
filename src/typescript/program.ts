@@ -17,7 +17,7 @@ export class Program {
                     mutable: true,
                     identifier: {
                         type: AST.CodeNodeTypes.identifier,
-                        value: 'var',
+                        value: 'myVar1',
                         parent: null    
                     },
                     valueExpression: null,
@@ -30,7 +30,7 @@ export class Program {
                     mutable: true,
                     identifier: {
                         type: AST.CodeNodeTypes.identifier,
-                        value: 'var1',
+                        value: 'myVar2',
                         parent: null    
                     },
                     valueExpression: null,
@@ -43,7 +43,7 @@ export class Program {
                     mutable: true,
                     identifier: {
                         type: AST.CodeNodeTypes.identifier,
-                        value: 'var2',
+                        value: 'myVar3',
                         parent: null    
                     },
                     valueExpression: null,
@@ -51,7 +51,11 @@ export class Program {
                     parent: null
                 } as AST.DeclarationNode,
             ],
-            identifier: 'main',
+            identifier: {
+                type: AST.CodeNodeTypes.identifier,
+                value: 'main',
+                parent: null    
+            },
             type: AST.CodeNodeTypes.module,
             parent: null ,
             version: '0.0.1'
