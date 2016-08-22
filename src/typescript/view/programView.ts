@@ -23,7 +23,8 @@ export const getDOMData = (element: JQuery | HTMLElement) : DOMData => {
 }
 
 export const mountProgramView = (program: Program, dom: HTMLElement) => {
-
+    
+    $(dom).empty();
     const container = $('<div>').addClass('code').appendTo(dom);
     const rootController = basicController(program.data);
 
@@ -185,6 +186,10 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
             if (wholeParseResult.result) {
                 const changeResult = controller.handleComponentChange(wholeParseResult.result);
                 if (changeResult.success) {
+                    // TODO: Optimisation for rendering here
+                    // All you need to do, get all nodes for the range (you've already got them)
+                    // Remove them, reinsert at same position
+                    // Simple as that m8
                     render();
                     return;
                 }

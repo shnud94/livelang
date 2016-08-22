@@ -1,5 +1,6 @@
 import * as AST from './ast/index';
 import {Types} from './ast/index';
+import * as _ from 'underscore';
 
 let openPrograms: {[key: string] : Program} = {};
 export class Program {
@@ -18,11 +19,11 @@ export class Program {
                     identifier: {
                         type: AST.CodeNodeTypes.identifier,
                         value: 'myVar1',
-                        parent: null    
+                        _parent: null    
                     },
                     valueExpression: null,
                     typeExpression: null,
-                    parent: null
+                    _parent: null
                 } as AST.DeclarationNode,
 
                 {
@@ -31,11 +32,11 @@ export class Program {
                     identifier: {
                         type: AST.CodeNodeTypes.identifier,
                         value: 'myVar2',
-                        parent: null    
+                        _parent: null    
                     },
                     valueExpression: null,
                     typeExpression: null,
-                    parent: null
+                    _parent: null
                 } as AST.DeclarationNode,
 
                 {
@@ -44,20 +45,20 @@ export class Program {
                     identifier: {
                         type: AST.CodeNodeTypes.identifier,
                         value: 'myVar3',
-                        parent: null    
+                        _parent: null    
                     },
                     valueExpression: null,
                     typeExpression: null,
-                    parent: null
+                    _parent: null
                 } as AST.DeclarationNode,
             ],
             identifier: {
                 type: AST.CodeNodeTypes.identifier,
                 value: 'main',
-                parent: null    
+                _parent: null    
             },
             type: AST.CodeNodeTypes.module,
-            parent: null ,
+            _parent: null ,
             version: '0.0.1'
         };
         openPrograms[this.data._id] = this;
@@ -69,19 +70,42 @@ export class Program {
     }
 
     static programFromNode(node: AST.CodeNode) : Program {
-        if (node.parent) {
-            return Program.programFromNode(node.parent);
+        if (node._parent) {
+            return Program.programFromNode(node._parent);
         }
         return openPrograms[node._id];
     }
 }
 
 export function programToJSON(program: Program) : string {
-    return JSON.stringify(program.data);
+    return JSON.stringify(program.data, (key, val) => {
+        if (key.startsWith('_')) return undefined;
+        return val;
+    }, 2);
 }
 
 export function programFromJSON(json: string) : Program {
-    return JSON.parse(json);
+    const program = new Program();
+    const parsed = JSON.parse(json);
+
+    const reviveChildren = (object: AST.CodeNode) => {
+        _.values(object).forEach(val => {
+
+            if (typeof(val) === 'object' && val.type) {
+                // Assume we've revived a code node
+                // Add id and parent
+                val._id = program.getNextId();
+                reviveChildren(val);
+                // Order is important here, can't add parent to children before
+                // reviving them, because then we have a circular reference
+                val.parent = object;
+            }
+        });
+    };
+
+    reviveChildren(parsed);
+    program.data = parsed;
+    return program;
 } 
 
 export function programToLLVM(program: Program) : string {

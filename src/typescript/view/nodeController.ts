@@ -38,7 +38,12 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
         node: node,
         events: createBaseComponentControllerEvents(),
         handleComponentChange: (newValue) => {
-            node = newValue as any;
+        
+            _.keys(node).forEach(key => {
+                if (!key.startsWith('_')) delete node[key];
+            });
+            _.extend(node, newValue);
+
             return {
                 errors: [],
                 success: true,
