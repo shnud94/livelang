@@ -133,7 +133,7 @@ export interface CodeNode {
     display?: {[frontend: string] : any}
     
     type: CodeNodeType
-    parent: CodeNode,    
+    _parent: CodeNode,    
 }
 
 export interface StructDefinitionNode {
@@ -199,7 +199,7 @@ export interface TypeDeclaration extends CodeNode {
 
 
 export interface ExpressionNode extends CodeNode {
-    expression: PrefixExpressionNode | BinaryExpressionNode | CallExpressionNode
+    expression: ValueNode | PrefixExpressionNode | BinaryExpressionNode | CallExpressionNode
 }
 
 export interface PrefixExpressionNode extends CodeNode {
@@ -220,7 +220,7 @@ export interface BinaryExpressionNode extends CodeNode {
     rhs: ExpressionNode
 }
 
-export type ModuleChild = DeclarationNode | ExpressionNode;
+export type ModuleChild = DeclarationNode | ExpressionNode | AssignmentNode;
 export interface ModuleNode extends CodeNode {
 
     /**

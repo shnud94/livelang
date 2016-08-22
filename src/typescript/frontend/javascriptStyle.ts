@@ -30,9 +30,9 @@ const flatten = (something: any) => {
     }
     return something;
 }
-const assignParent = (node, parent) => {
+const assignParent = <T extends AST.CodeNode>(node: T, parent) : T => {
     if (typeof(node) !== 'object') debugger;
-    node.parent = parent; return node;
+    node._parent = parent; return node;
 }
 
 export const frontendDescription = {
@@ -55,7 +55,7 @@ export const numericLiteral: NodeTextDescription<AST.ValueNode> = {
         return {
             type: AST.CodeNodeTypes.numericLiteral,
             value: value,
-            parent: prev ? prev.parent : null
+            _parent: prev ? prev._parent : null
         }
     },
     getTextSpecs() {
@@ -82,7 +82,7 @@ export const stringLiteral: NodeTextDescription<AST.ValueNode> = {
         return {
             type: AST.CodeNodeTypes.stringLiteral,
             value: value.substr(1, value.length - 2),
-            parent: prev ? prev.parent : null
+            _parent: prev ? prev._parent : null
         }
     },
     getTextSpecs() {
@@ -104,7 +104,7 @@ export const identifier: NodeTextDescription<AST.ValueNode> = {
             prev = {
                 type: AST.CodeNodeTypes.identifier,
                 value: null,
-                parent: prev ? prev.parent : null
+                _parent: prev ? prev._parent : null
             }
         }
 
@@ -130,7 +130,7 @@ export const prefixExpression: NodeTextDescription<AST.PrefixExpressionNode> = {
 
         if (!prev) {
             prev = {
-                parent: null,
+                _parent: null,
                 operator: null,
                 subExpression: null,
                 type: AST.CodeNodeTypes.prefixExpression
@@ -158,7 +158,7 @@ export const arrayLiteral: NodeTextDescription<AST.ValueNode> = {
         
         if (!prev) {
             prev = {
-                parent: null,
+                _parent: null,
                 value: null,
                 type: AST.CodeNodeTypes.arrayLiteral
             }
@@ -236,7 +236,7 @@ export const binaryExpression: NodeTextDescription<AST.BinaryExpressionNode> = {
         if (!prev) {
             prev = {
                 type: AST.CodeNodeTypes.binaryExpression,
-                parent: null,
+                _parent: null,
                 lhs: null,
                 operator: null,
                 rhs: null
@@ -294,7 +294,7 @@ export const assignment: NodeTextDescription<AST.AssignmentNode> = {
         if (!prev) {
             prev = {
                 type: AST.CodeNodeTypes.assignment,
-                parent: null,
+                _parent: null,
                 identifier: null,
                 valueExpression: null
             };
@@ -328,7 +328,7 @@ export const declaration: NodeTextDescription<AST.DeclarationNode> = {
         if (!prev) {
             prev = {
                 type: AST.CodeNodeTypes.declaration,
-                parent: null, // TODO: How are we going to make sure parent isn't null when first creating a node?
+                _parent: null, // TODO: How are we going to make sure parent isn't null when first creating a node?
                 mutable: null,
                 identifier: null,
                 valueExpression: null,
@@ -398,7 +398,7 @@ export const theModule: NodeTextDescription<AST.ModuleNode> = {
         if (!node) {
             node = {
                 type: AST.CodeNodeTypes.module,
-                parent: null,
+                _parent: null,
                 identifier: null,
                 version: '0.0.1', // TODO: Get the latest version that we're on right now
                 children: null

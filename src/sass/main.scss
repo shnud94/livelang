@@ -1,14 +1,42 @@
 $color-blue: #03a9f4;
 $color-grey: #CCC;
+$spacing-standard: 1rem;
 
 body {
     font-size: 24px;
     font-family: sans-serif;
+    box-sizing: border-box;
+    margin: 0;
 }
 
 
 * {
     font-size: inherit;
+}
+
+#livelang-root {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    min-width: 100%;
+    overflow:hidden;
+}
+
+.buttons {
+    background: #EEE;
+    display: flex;
+    > * {
+        margin: $spacing-standard/2 $spacing-standard/2;
+    }
+    margin-bottom: $spacing-standard*2;
+}
+
+.content {
+    padding: $spacing-standard;
+    border: 1px solid #EEE;
+    flex-grow: 1;
+    overflow: auto;
 }
 
 .scopeNode {
