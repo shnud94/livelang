@@ -81,7 +81,7 @@ export function createArrayType(type: Type | Type[], identifier?: string) : Arra
 
 export function createValueType(identifier: string) : ValueType {
     return {
-        identifier: name,
+        identifier: identifier,
         type: t.value
     };
 }
@@ -147,7 +147,7 @@ function createUnaryOperatorTypes(op: string, types: Type[]) : OrType {
 const numericTypes = [b.int8, b.int16, b.int32, b.uint8, b.uint16, b.int32, b.float16, b.float32];
 const builtIns = [].concat([numericTypes, b.string, b.boolean]);
 
-export const BinaryOperators = {
+export const BinaryOperators: {[key: string] : Type} = {
     '+' : createBinaryOperatorTypes('+', [].concat(numericTypes, b.string)),
     '-' : createBinaryOperatorTypes('-', numericTypes),
     '/' : createBinaryOperatorTypes('/', numericTypes),
@@ -163,7 +163,7 @@ export const BinaryOperators = {
     '!=' : createBinaryOperatorTypes('!=', builtIns),
 }
 
-export const UnaryOperators = {
+export const UnaryOperators: {[key: string] : Type} = {
     '!' : createCallableType(b.boolean, b.boolean),
     '-' : createBinaryOperatorTypes('-', numericTypes)
 }
@@ -181,16 +181,43 @@ type Scope = {
 
 function resolveDeclarationByIdentifier(identifier: string, scope: Scope) : DeclarationInfo {
     if (!scope) return null;        
-    if (scope[identifier]) return scope[identifier];
+    if (scope.declarationsByIdentifier[identifier]) return scope.declarationsByIdentifier[identifier];
     return resolveDeclarationByIdentifier(identifier, scope.parent);
 }
 
-export function typeCheckModule(module: AST.ModuleNode, context: TypeCheckContext) {
+function convertOperatorsToDeclarations(stringsNTypes: {[key: string] : Type}) : {[key: string] : DeclarationInfo} {
+    return util.mapObj(stringsNTypes, (key, value) => {
+        return [key, {type: value, declaration: null}];
+    });
+}
+
+
+/**
+ * Inserts built in library functions into the type check context
+ */
+export function seedTypeCheckContext(context: TypeCheckContext) {
+    _.extend(context.rootScope.declarationsByIdentifier, convertOperatorsToDeclarations(BinaryOperators));
+    _.extend(context.rootScope.declarationsByIdentifier, convertOperatorsToDeclarations(UnaryOperators));
+    _.extend(context.typesByIdentifier, BuiltInTypes);
+}
+
+export function typeCheckModule(module: AST.ModuleNode, context?: TypeCheckContext) : TypeCheckContext {
 
     const rootScope: Scope = {
         children: [],
         declarationsByIdentifier: {} 
     }
+
+    if (!context) {
+        context = {
+            errors: [],
+            rootScope: rootScope,
+            resolveType: identifier => resolveTypeByIdentifier(identifier, context.typesByIdentifier),
+            typesByIdentifier: {},
+            warnings: []
+        };
+    }    
+    seedTypeCheckContext(context);
 
     module.children.forEach(child => {
         const asCodeNode = child as any as AST.CodeNode;
@@ -206,6 +233,8 @@ export function typeCheckModule(module: AST.ModuleNode, context: TypeCheckContex
             typeCheckAssignment(child as AST.AssignmentNode, context, rootScope);
         }
     });
+
+    return context;
 }
 
 // Think this is just for checking assignment
@@ -260,10 +289,22 @@ export function typesMatch(dest: Type, source: Type) : boolean {
     return false;
 }
 
-interface TypeCheckContext extends TypeCreationContext {
+export function createError(error: string, nodes: AST.CodeNode[] = []) : TypeCheckContextError {
+    return {
+        errorString: error,
+        nodes: nodes
+    }
+}
+
+interface TypeCheckContextError {
+    errorString: string,
+    nodes: AST.CodeNode[]
+}
+
+export interface TypeCheckContext extends TypeCreationContext {
     rootScope: Scope
-    resolveType: (identifier: String | Type) => Type
-    errors: string[]
+    resolveType: (identifier: string | Type) => Type
+    errors: TypeCheckContextError[]
     warnings: string[]
 }
 
@@ -285,14 +326,16 @@ export function typeCheckDeclaration(declaration: AST.DeclarationNode, context: 
         let expressionType = typeCheckExpression(declaration.valueExpression, context, scope);
         const match = typesMatch(declarationType || getAnyType(), expressionType);
         if (!match) {
-            context.errors.push(`Types weren't assignable bruh`);
+            context.errors.push(createError(`Types weren't assignable bruh`));
         }
         // Give declaration type precedence as we might want to cast to something specific
         declarationType = match ? (declarationType || expressionType) : getAnyType(); 
     }
 
+    declarationType = declarationType || getAnyType();
+
     if (existing) {
-        context.errors.push(`Duplicate identifier '${declaration.identifier}, all but 1st ignored'`);
+        context.errors.push(createError(`Duplicate identifier '${declaration.identifier}, all but 1st ignored'`));
     }
     else {
         scope.declarationsByIdentifier[declaration.identifier.value] = {
@@ -302,14 +345,14 @@ export function typeCheckDeclaration(declaration: AST.DeclarationNode, context: 
     }
 
     // No expression, just an empty declaration
-    return declarationType || getAnyType();
+    return declarationType
 }
 
 export function typeCheckAssignment(assignment: AST.AssignmentNode, context: TypeCheckContext, scope: Scope) : Type {
     
      const declaration = resolveDeclarationByIdentifier(assignment.identifier.value, scope);
      if (!declaration) {
-         context.errors.push(`Unable to find variable ${assignment.identifier} to assign to`);
+         context.errors.push(createError(`Unable to find variable ${assignment.identifier} to assign to`));
      }
 
      const decType = declaration.type || getAnyType();
@@ -328,7 +371,15 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
     if (expression.type === types.identifier) {
         const asIdentifier = expression as AST.Identifier;
         if (asIdentifier.value === 'false' || asIdentifier.value === 'true') return BuiltInTypes.boolean;
-        return resolveDeclarationByIdentifier(asIdentifier.value, scope).type;        
+        const resolved = resolveDeclarationByIdentifier(asIdentifier.value, scope);
+        if (resolved && resolved.type) {
+            return resolved.type;
+        }   
+        else {
+            debugger;
+            context.errors.push(createError(`Couldn't resolve type of $0`, [asIdentifier]));
+            return getAnyType();
+        }     
     }
     if (expression.type === types.arrayLiteral) {
 
@@ -349,7 +400,7 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
 
         }, null as Type);
         
-        if (allAssignable) return createArrayType(allAssignable[0]);
+        if (allAssignable) return createArrayType(childTypes[0]);
         return createArrayType(childTypes);
     }
     else if (expression.type === types.numericLiteral) {
@@ -378,17 +429,34 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
     else if (expression.type === types.callExpression) {
 
         const asCallExpression = expression as AST.CallExpressionNode;
-        const methodType = typeCheckExpression(asCallExpression.target, context, scope);
-        if (methodType.type !== t.function) {
-            console.error(`Expression ${asCallExpression.target} is not callable`);
+        const inputType = typeCheckExpression(asCallExpression.input, context, scope);
+        let functionType = typeCheckExpression(asCallExpression.target, context, scope);
+        
+        const checkFunction = (inputType: Type, func: FunctionType) => {
+            return typesMatch(func.input, inputType);
+        }
+
+        if (functionType.type === t.or) {
+            const asOr = functionType as OrType;
+            const foundMatch = asOr.choices.find(functionType => 
+                functionType.type === t.function && checkFunction(inputType, functionType as FunctionType)
+            ) as FunctionType;
+            if (foundMatch) {
+                return foundMatch.output;
+            }
+            context.errors.push(createError(`Input for method $0 does not match declared`, [asCallExpression.target]));
+            return getAnyType();
+        }
+        if (functionType.type !== t.function) {
+            context.errors.push(createError(`Expression $0 is not callable`, [expression]));
             return getAnyType();
         }
 
-        const asMethod = methodType as FunctionType;
-        const inputType = typeCheckExpression(asCallExpression.input, context, scope);
+        const asMethod = functionType as FunctionType;        
         const inputMatches = typesMatch(asMethod.input, inputType);
+
         if (!inputMatches) {
-            console.error(`Input for method ${asMethod.identifier} does not match declared`);
+            context.errors.push(createError(`Input for method $0 does not match declared`, [asCallExpression.target]));
         }
 
         return asMethod.output;

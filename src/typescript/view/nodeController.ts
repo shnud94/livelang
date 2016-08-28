@@ -37,6 +37,7 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
     const failureResponse = {errors: [], success: false, completions: []};
 
     let thisController: NodeTextController = {
+        firstNode: null,
         node: node,
         events: createBaseComponentControllerEvents(),
         handleComponentChange: (newValue) => {
@@ -71,7 +72,8 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
         },
         render(context: RenderContext) {
 
-            const insert = toInsert => {
+            thisController.firstNode = null;
+            const insert = (toInsert: HTMLElement) => {
                 if (!context.head) {
                     $(toInsert).appendTo(context.parent);
                 }
@@ -79,6 +81,10 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
                     $(toInsert).insertAfter(context.head);
                 }
                 context.head = toInsert[0];
+
+                if (!thisController.firstNode) {
+                    thisController.firstNode = toInsert;
+                }
             }
 
             const processDescription = (desc: TextComponent, index: number, array: TextComponent[], indexInArray: number) => {
@@ -99,7 +105,7 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
                             initial: asString
                         } as DOMData)
                         .text(asString);
-                    insert(domNode);
+                    insert(domNode[0]);
 
                     startComponentNodesByIndex[index] = domNode[0];
                 }
