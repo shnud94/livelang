@@ -1,5 +1,6 @@
 import {NodeTextDescription, TextSpec} from '../frontend/index';
 import * as nearley from './nearley';
+import {Grammar} from 'nearley';
 import * as _ from 'underscore';
 import {Result} from '../util'
 
@@ -51,21 +52,30 @@ const asNewRule = (rule: string, context: GrammarCreationContext, newRule: boole
     return newRuleName;
 }
 
-export const parseSpec = (spec: TextSpec, input: string) : Result<any> => {
+const cached: {[key: string] : (input: string) => Result<any>} = {};
+export const parseSpecCached = (spec: TextSpec, input: string, cacheId: string) : Result<any> => {
+    if (!cached[cacheId]) {
+        cached[cacheId] = specParser(spec);
+    }
 
+    return cached[cacheId](input);
+}  
+
+export const specParser = (spec: TextSpec) : (input: string) => Result<any> => {
     let grammar = "";
+    const creationContext = getNewContext();
+
     if (typeof(spec) === 'string') {
         // the rule generated otherwise would just be a string rather than a rule name,
         // just return a simple match rule
         grammar += `rule -> "${sanitizeString(spec)}"`;
     }
-    else {
-        const creationContext = getNewContext();    
+    else {  
         const rule = newGetRuleDefinitionForTextSpec(spec, creationContext, 0);
         
         grammar += "@{% ";
         
-        (window as any)._livelangNearley = creationContext.functions;
+        
         _.keys(creationContext.functions).forEach(key => {
             grammar += `function ${key}(data) {return window._livelangNearley.${key}(data)} `
         });
@@ -79,8 +89,16 @@ export const parseSpec = (spec: TextSpec, input: string) : Result<any> => {
     }
 
     const compiled = nearley.compileGrammar(grammar);
-    return nearley.parse(compiled.result, input);
+
+    return (input: string) => {
+        // We need to assign these functions every time as they get overwritten with each
+        // successive call
+        (window as any)._livelangNearley = creationContext.functions;
+        return nearley.parse(compiled.result, input);
+    }
 }
+
+export const parseSpec = (spec: TextSpec, input: string) => specParser(spec)(input);
 
 export const generateNearleyGrammarFromSpec = (spec: TextSpec) : string => {
 
