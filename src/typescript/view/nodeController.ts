@@ -8,7 +8,7 @@ import {EventSource} from '../util/events';
 import * as Frontend from '../frontend/index';
 import {NodeTextDescription, TextComponent, TextSpec} from '../frontend/index';
 import * as js from '../frontend/javascriptStyle';
-import {NodeEvents, NodeTextController, ComponentDescription} from './index';
+import {RenderContext, NodeEvents, NodeTextController, ComponentDescription} from './index';
 import * as parserCustom from '../parser/custom';
 import * as nearley from '../parser/nearley';
 import {DOMData} from './programView';
@@ -23,6 +23,7 @@ const createBaseComponentControllerEvents = () : NodeEvents => {
     }
 }
 
+
 /**
  * Resuable general controller for all nodes
  */
@@ -33,11 +34,13 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
     // See these more as pointers to the beginning of components, not necessarily the whole component, could be a list
     // of many
     let startComponentNodesByIndex: {[key: number] : HTMLElement} = {};
+    const failureResponse = {errors: [], success: false, completions: []};
 
     let thisController: NodeTextController = {
         node: node,
         events: createBaseComponentControllerEvents(),
         handleComponentChange: (newValue) => {
+            if (nodeDescription.denyReparse) return failureResponse;
         
             _.keys(node).forEach(key => {
                 if (!key.startsWith('_')) delete node[key];
@@ -51,9 +54,14 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
             }
         },
         handleChildComponentChange: (indexes, newComponent) => {
+            if (nodeDescription.denyReparse) return failureResponse;
+
             const currentComponents = nodeDescription.componentsFromValue(node);
             currentComponents[indexes[0]] = newComponent;
-            nodeDescription.updateValueFromComponents(currentComponents, node);
+            const result = nodeDescription.updateValueFromComponents(currentComponents, node);
+            if (result !== node) {
+                console.error('You are expected to only update an existing node, not return a new one');
+            }
             
             return {
                 errors: [],
@@ -61,7 +69,17 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
                 completions: []
             }
         },
-        render(parent: HTMLElement) {
+        render(context: RenderContext) {
+
+            const insert = toInsert => {
+                if (!context.head) {
+                    $(toInsert).appendTo(context.parent);
+                }
+                else {
+                    $(toInsert).insertAfter(context.head);
+                }
+                context.head = toInsert[0];
+            }
 
             const processDescription = (desc: TextComponent, index: number, array: TextComponent[], indexInArray: number) => {
                 
@@ -77,9 +95,11 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
                         .data({
                             representedNode: node,
                             componentController: thisController,
-                            index: index
+                            index: index,
+                            initial: asString
                         } as DOMData)
-                        .text(asString).appendTo(parent);
+                        .text(asString);
+                    insert(domNode);
 
                     startComponentNodesByIndex[index] = domNode[0];
                 }
@@ -92,7 +112,7 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
                     const asNode = desc as AST.CodeNode;
                     const controllerForChildNode = basicController(asNode);
                     controllerForChildNode.parentController = thisController;
-                    controllerForChildNode.render(parent);
+                    controllerForChildNode.render(context);
                     controllerForChildNode.indexInParent = index;
                     controllerForChildNode.indexInArray = indexInArray;
                 }

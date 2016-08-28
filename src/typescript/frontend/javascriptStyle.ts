@@ -103,12 +103,15 @@ export const identifier: NodeTextDescription<AST.Identifier> = {
 export const numericLiteral: NodeTextDescription<AST.NumericLiteralNode> = {
     id: AST.CodeNodeTypes.numericLiteral,
     updateValueFromComponents: (components, prev) => {
-        const value = parseFloat(flat(components));
-        return {
-            type: AST.CodeNodeTypes.numericLiteral,
-            value: value,
-            _parent: prev ? prev._parent : null
+        if (!prev) {
+            prev = {
+                type: AST.CodeNodeTypes.numericLiteral,
+                value: 0,
+                _parent: null
+            }
         }
+        prev.value = parseFloat(flat(components));
+        return prev;
     },
     getTextSpecs() {
         return [

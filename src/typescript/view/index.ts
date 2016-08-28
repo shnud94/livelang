@@ -8,6 +8,11 @@ import {NodeTextDescription, TextComponent} from '../frontend/index';
 import * as js from '../frontend/javascriptStyle';
 
 export type ComponentDescription = string | NodeTextController;
+
+export interface RenderContext {
+    head?: HTMLElement,
+    parent: HTMLElement
+}
 export interface ComponentCompletion {
 
     completionText: string,
@@ -49,7 +54,7 @@ export interface NodeTextController {
     handleComponentChange(newValue: TextComponent) : ComponentChangeResponse
 
     parentController?: NodeTextController
-    render: (parent: HTMLElement) => void,
+    render: (context: RenderContext) => void,
 
     indexInParent?: number,
     indexInArray?: number,

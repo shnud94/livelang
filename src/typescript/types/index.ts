@@ -273,7 +273,7 @@ interface TypeCreationContext {
 
 export function typeCheckDeclaration(declaration: AST.DeclarationNode, context: TypeCheckContext, scope: Scope) : Type {
 
-    const existing = resolveDeclarationByIdentifier(declaration.identifier, scope);
+    const existing = resolveDeclarationByIdentifier(declaration.identifier.value, scope);
 
     let declarationType: Type;
 
@@ -295,7 +295,7 @@ export function typeCheckDeclaration(declaration: AST.DeclarationNode, context: 
         context.errors.push(`Duplicate identifier '${declaration.identifier}, all but 1st ignored'`);
     }
     else {
-        scope.declarationsByIdentifier[declaration.identifier] = {
+        scope.declarationsByIdentifier[declaration.identifier.value] = {
             declaration: declaration,
             type: declarationType
         }
@@ -307,7 +307,7 @@ export function typeCheckDeclaration(declaration: AST.DeclarationNode, context: 
 
 export function typeCheckAssignment(assignment: AST.AssignmentNode, context: TypeCheckContext, scope: Scope) : Type {
     
-     const declaration = resolveDeclarationByIdentifier(assignment.identifier, scope);
+     const declaration = resolveDeclarationByIdentifier(assignment.identifier.value, scope);
      if (!declaration) {
          context.errors.push(`Unable to find variable ${assignment.identifier} to assign to`);
      }
@@ -325,15 +325,12 @@ export function typeCheckAssignment(assignment: AST.AssignmentNode, context: Typ
 
 export function typeCheckExpression(expression: AST.ExpressionType, context: TypeCheckContext, scope: Scope) : Type {
 
-    const asString = expression as string;
-    const asCodeNode = expression as any as AST.CodeNode;
-
-    if (typeof(asString) === 'string') {
-        
-        if (asString === 'false' || asString === 'true') return BuiltInTypes.boolean;
-        return resolveDeclarationByIdentifier(asString, scope).type;        
+    if (expression.type === types.identifier) {
+        const asIdentifier = expression as AST.Identifier;
+        if (asIdentifier.value === 'false' || asIdentifier.value === 'true') return BuiltInTypes.boolean;
+        return resolveDeclarationByIdentifier(asIdentifier.value, scope).type;        
     }
-    if (asCodeNode.type === types.arrayLiteral) {
+    if (expression.type === types.arrayLiteral) {
 
         // Array literal
         const asValueNode = expression as AST.ArrayLiteralNode;
@@ -355,7 +352,7 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
         if (allAssignable) return createArrayType(allAssignable[0]);
         return createArrayType(childTypes);
     }
-    else if (asCodeNode.type === types.numericLiteral) {
+    else if (expression.type === types.numericLiteral) {
         
         // Numeric literal
         const asValueNode = expression as AST.NumericLiteralNode;
@@ -367,7 +364,7 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
             return BuiltInTypes.float32;
         }
     }
-    else if (asCodeNode.type === types.mapLiteral) {
+    else if (expression.type === types.mapLiteral) {
         
         // Map literal
         const asValueNode = expression as AST.MapLiteralNode;
@@ -375,10 +372,10 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
             return [key, typeCheckExpression(val, context, scope)]
         }))
     }
-    else if (asCodeNode.type === types.stringLiteral) {
+    else if (expression.type === types.stringLiteral) {
         return BuiltInTypes.string;
     }
-    else if (asCodeNode.type === types.callExpression) {
+    else if (expression.type === types.callExpression) {
 
         const asCallExpression = expression as AST.CallExpressionNode;
         const methodType = typeCheckExpression(asCallExpression.target, context, scope);
@@ -452,16 +449,16 @@ export function getTypes(module: AST.ModuleNode) : {[identifier: string] : Type}
     };    
 
     module.children.forEach(child => {
-        if (child === types.typeDeclaration) {
+        if (child.type === types.typeDeclaration) {
 
             const typeDec = child as AST.TypeDeclaration;
             const typeExpression = typeDec.typeExpression;
 
-            if (context.typesByIdentifier[typeDec.identifier]) {
+            if (context.typesByIdentifier[typeDec.identifier.value]) {
                 console.error(`Declared same type twice with identifier ${typeDec.identifier}`);
                 console.error(`Not doing anything about this now m8 but be warned l8r on you will experinese problmz`);
             }
-            context.typesByIdentifier[typeDec.identifier] = getTypeOfTypeExpression(typeExpression);
+            context.typesByIdentifier[typeDec.identifier.value] = getTypeOfTypeExpression(typeExpression);
         }
     });
 

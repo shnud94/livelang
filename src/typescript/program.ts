@@ -16,7 +16,7 @@ export class Program {
                 {
                     type: AST.CodeNodeTypes.declaration,
                     mutable: true,
-                    identifier: 'myVar1',
+                    identifier: AST.createIdentifier('myVar1'),
                     valueExpression: null,
                     typeExpression: null,
                     _parent: null
@@ -25,7 +25,7 @@ export class Program {
                 {
                     type: AST.CodeNodeTypes.declaration,
                     mutable: true,
-                    identifier: 'myVar2',
+                    identifier: AST.createIdentifier('myVar2'),
                     valueExpression: null,
                     typeExpression: null,
                     _parent: null
@@ -34,13 +34,13 @@ export class Program {
                 {
                     type: AST.CodeNodeTypes.declaration,
                     mutable: true,
-                    identifier: 'myVar3',
+                    identifier: AST.createIdentifier('myVar3'),
                     valueExpression: null,
                     typeExpression: null,
                     _parent: null
                 } as AST.DeclarationNode,
             ],
-            identifier: 'main',
+            identifier: AST.createIdentifier('main'),
             type: AST.CodeNodeTypes.module,
             _parent: null ,
             version: '0.0.1'

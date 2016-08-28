@@ -15,7 +15,8 @@ export type ControllerProvider = (node: AST.CodeNode) => NodeTextController;
 export interface DOMData {
     representedNode?: AST.CodeNode
     componentController?: NodeTextController
-    index: number
+    index: number,
+    initial: string
 }
 
 export const getDOMData = (element: JQuery | HTMLElement) : DOMData => {
@@ -28,12 +29,44 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
     const container = $('<div>').addClass('code').appendTo(dom);
     const rootController = basicController(program.data);
 
-    const render = () => {
-        $(container).empty();
-        rootController.render(container[0]);
+
+    const layoutAll = () => {
+        $(container).find('._layout').remove();
         layoutRange(container.children()[0] as HTMLElement, container.children().last()[0] as HTMLElement);
     };
-    render();    
+    const renderAll = () => {
+        $(container).empty();
+        rootController.render({
+            parent: container[0]
+        });
+        layoutAll();
+    };
+
+    const renderControllerRange = (controller: NodeTextController, range: HTMLElement[]) => {
+        const prev = $(range[0]).prev();
+        
+        if (range.length > 0) {
+            $(range).remove();
+        }
+
+        const tempContainer = $('<div>');
+        const renderContext = {
+            parent: tempContainer[0],
+        }
+        
+        controller.render(renderContext);
+        const rendered = tempContainer.children();
+        if (prev[0]) {
+            rendered.insertAfter(prev);
+        }
+        else {
+            container.empty();
+            rendered.appendTo(container);
+        }
+        
+        layoutAll();
+    }
+    renderAll();    
 
     function layoutRange(start: HTMLElement, end: HTMLElement) {
 
@@ -155,9 +188,12 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
     };
 
     const keyup = _.debounce((event: KeyboardEvent) => {
+
         const $target = $(event.target);
         const data = $target.data() as DOMData;
         const value = $target.text();
+
+        if (value === data.initial) return;
 
         const results: Result<any>[] = [];
         let controller = data.componentController;
@@ -165,22 +201,25 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
         
         while (controller) {
 
+            const controllerNodeRange = getControllerNodeRange(event.target as HTMLElement, controller);
+            // First try and reparse just the one component in this node that's changed
             const index = indexes[0];
             const specs = controller.description.getTextSpecs();
-            const parseResult = parser.parseSpec(specs[index], value);
+            const parseResult = parser.parseSpecCached(specs[index], value, controller.description.id + index.toString());
             results.push(parseResult);
 
             if (parseResult.result) {
                 const changeResult = controller.handleChildComponentChange(indexes, parseResult.result);                    
                 if (changeResult.success) {
-                    render();
+                    renderControllerRange(controller, controllerNodeRange);
                     return;
                 }
             }      
 
-            const controllerNodeRange = getControllerNodeRange(event.target as HTMLElement, controller);
+            // If we're not successfull, reparse the whole thing
+            
             const textInRange = util.textInNodeRange(controllerNodeRange[0], controllerNodeRange.last());
-            const wholeParseResult = parser.parseSpec(controller.description, textInRange);
+            const wholeParseResult = parser.parseSpecCached(controller.description, textInRange, controller.description.id);
             results.push(wholeParseResult);
 
             if (wholeParseResult.result) {
@@ -190,7 +229,7 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
                     // All you need to do, get all nodes for the range (you've already got them)
                     // Remove them, reinsert at same position
                     // Simple as that m8
-                    render();
+                    renderControllerRange(controller, controllerNodeRange);
                     return;
                 }
             }

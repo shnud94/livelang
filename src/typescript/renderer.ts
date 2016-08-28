@@ -9,9 +9,13 @@ import * as settings from './settings/index';
 const dialog = remote.dialog;
 
 function loadFromPath(path: string) {
-    theProgram = program.programFromJSON(fs.readFileSync(path, 'utf-8'));
-    settings.lastOpenedFile.set(path);
-    view.mountProgramView(theProgram, content[0]);
+    try {
+        theProgram = program.programFromJSON(fs.readFileSync(path, 'utf-8'));
+        settings.lastOpenedFile.set(path);
+        view.mountProgramView(theProgram, content[0]);
+    } catch (e) {
+        console.error('Unable to load most recent file');
+    }    
 }
 
 /**

@@ -60,6 +60,15 @@ export interface TextDescription<T> {
 
     componentsFromValue: (node: T) => TextComponent[],
     updateValueFromComponents(components: TextComponent[], prev?: T) : T
+
+    /**
+     * Some text descriptions are associative, for example binary expression and its children in text
+     * form can be interpreted differently depending on the operator. If we reparse just one binary expression's
+     * components, its operator could change to one with higher associativity but remain in its current position
+     * in the AST. Not good! When this flag is true, this will not be allowed and control will be pushed up
+     * to a parent text description capable of interpreting the associativity
+     */
+    denyReparse?: boolean
 }
 
 /**
