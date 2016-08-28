@@ -8,13 +8,14 @@ export namespace CodeNodeTypes {
     export const declaration: CodeNodeType = "declaration";
     export const assignment: CodeNodeType = "assignment";
 
-    export const memberAccess: CodeNodeType = "expression/memberAccess";
-    export const callExpression: CodeNodeType = "expression/callExpression";
-    export const numericLiteral: CodeNodeType = "expression/numericLiteral";
-    export const stringLiteral: CodeNodeType = "expression/stringLiteral";
-    export const arrayLiteral: CodeNodeType = "expression/arrayLiteral";
-    export const mapLiteral: CodeNodeType = "expression/mapLiteral";
-    export const callableLiteral: CodeNodeType = "expression/callableLiteral";
+    export const identifier: CodeNodeType = "expressionidentifier";
+    export const memberAccess: CodeNodeType = "expressionmemberAccess";
+    export const callExpression: CodeNodeType = "expressioncallExpression";
+    export const numericLiteral: CodeNodeType = "expressionnumericLiteral";
+    export const stringLiteral: CodeNodeType = "expressionstringLiteral";
+    export const arrayLiteral: CodeNodeType = "expressionarrayLiteral";
+    export const mapLiteral: CodeNodeType = "expressionmapLiteral";
+    export const callableLiteral: CodeNodeType = "expressioncallableLiteral";
 }
 export const Types = CodeNodeTypes;
 
@@ -25,8 +26,6 @@ interface CodeNodeRuntime {
         nodeError: EventSource<string>
     }
 }
-
-type Identifier = string;
 
 export interface CodeNode {
     _id?: string
@@ -89,6 +88,7 @@ export interface TypeDeclaration extends CodeNode {
 }
 
 export type ExpressionType = Identifier | ValueNode<any> | CallExpressionNode | MemberAccessExpression;
+export type Identifier = ValueNode<string>;
 
 export interface MemberAccessExpression extends CodeNode {
     member: Identifier
@@ -149,5 +149,13 @@ export function createArrayLiteral(values: ExpressionType[]) : ArrayLiteralNode 
         type: CodeNodeTypes.arrayLiteral,
         value: values,
         _parent: null    
+    }
+}
+
+export function createIdentifier(identifier: string, parent?: CodeNode) : Identifier {
+    return {
+        type: CodeNodeTypes.identifier,
+        value: identifier,
+        _parent: parent    
     }
 }
