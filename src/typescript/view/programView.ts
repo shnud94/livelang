@@ -10,6 +10,7 @@ import {basicController} from './nodeController';
 import * as parser from '../parser/custom';
 import * as _ from 'underscore';
 import {Result} from '../util';
+import * as typeChecker from '../types/index';
 
 export type ControllerProvider = (node: AST.CodeNode) => NodeTextController;
 export interface DOMData {
@@ -29,42 +30,87 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
     const container = $('<div>').addClass('code').appendTo(dom);
     const rootController = basicController(program.data);
 
-
     const layoutAll = () => {
         $(container).find('._layout').remove();
         layoutRange(container.children()[0] as HTMLElement, container.children().last()[0] as HTMLElement);
     };
-    const renderAll = () => {
+
+    const setCharsIntoController = (controller: NodeTextController, chars: number) => {
+
+        let currentNode = controller.firstNode;
+        let accum = 0;
+
+        while (currentNode && !(chars >= accum && chars < accum + $(currentNode).text().length)) {
+            currentNode = $(currentNode).next()[0];
+            accum += $(currentNode).text().length;
+        } 
+
+        if (currentNode) {
+            setTimeout(() => {
+                $(currentNode).click();
+                util.setCaretPosition(currentNode, chars - accum);
+            }, 0);
+        }
+    }
+
+    const getCharsIntoController = (controller: NodeTextController, focused: HTMLElement) => {
+        let accum = util.getCaretPosition(focused);
+
+        while (focused !== controller.firstNode) {
+            accum += $(focused).text().length;
+            focused = $(focused).prev()[0];           
+        }
+
+        return accum;
+    }
+
+    const renderAll = (controller?: NodeTextController, focused?: HTMLElement) => {
+
+        const typeCheck = typeChecker.typeCheckModule(program.data);
+        typeCheck.errors.forEach(e => console.error(e));
+        typeCheck.warnings.forEach(w => console.warn(w));
+
+        let charsFromControllerFirstNode: number;
+        if (controller && focused) {
+            charsFromControllerFirstNode = getCharsIntoController(controller, focused);
+        }
+
         $(container).empty();
         rootController.render({
-            parent: container[0]
+            parent: container[0],
+            typeCheckContext: typeCheck
         });
         layoutAll();
+
+        if (focused) {
+            setCharsIntoController(controller, charsFromControllerFirstNode);
+        }
     };
 
-    const renderControllerRange = (controller: NodeTextController, range: HTMLElement[]) => {
-        const prev = $(range[0]).prev();
+    const renderControllerRange = (controller: NodeTextController, range: HTMLElement[], focused?: HTMLElement) => {
+        renderAll(controller, focused);
+        // const prev = $(range[0]).prev();
         
-        if (range.length > 0) {
-            $(range).remove();
-        }
+        // if (range.length > 0) {
+        //     $(range).remove();
+        // }
 
-        const tempContainer = $('<div>');
-        const renderContext = {
-            parent: tempContainer[0],
-        }
+        // const tempContainer = $('<div>');
+        // const renderContext = {
+        //     parent: tempContainer[0],
+        // }
         
-        controller.render(renderContext);
-        const rendered = tempContainer.children();
-        if (prev[0]) {
-            rendered.insertAfter(prev);
-        }
-        else {
-            container.empty();
-            rendered.appendTo(container);
-        }
+        // controller.render(renderContext);
+        // const rendered = tempContainer.children();
+        // if (prev[0]) {
+        //     rendered.insertAfter(prev);
+        // }
+        // else {
+        //     container.empty();
+        //     rendered.appendTo(container);
+        // }
         
-        layoutAll();
+        // layoutAll();
     }
     renderAll();    
 
@@ -211,7 +257,7 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
             if (parseResult.result) {
                 const changeResult = controller.handleChildComponentChange(indexes, parseResult.result);                    
                 if (changeResult.success) {
-                    renderControllerRange(controller, controllerNodeRange);
+                    renderControllerRange(controller, controllerNodeRange, event.target as HTMLElement);
                     return;
                 }
             }      
@@ -229,7 +275,7 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
                     // All you need to do, get all nodes for the range (you've already got them)
                     // Remove them, reinsert at same position
                     // Simple as that m8
-                    renderControllerRange(controller, controllerNodeRange);
+                    renderControllerRange(controller, controllerNodeRange, event.target as HTMLElement);
                     return;
                 }
             }
