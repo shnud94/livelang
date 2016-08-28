@@ -4,118 +4,19 @@ export type CodeNodeType = string;
 export namespace CodeNodeTypes {
     export const module: CodeNodeType = "module";
 
+    export const typeDeclaration: CodeNodeType = "typeDeclaration";
     export const declaration: CodeNodeType = "declaration";
     export const assignment: CodeNodeType = "assignment";
-    export const expression: CodeNodeType = "expression";
 
-    export const callExpression: CodeNodeType = "callExpression";
-    export const prefixExpression: CodeNodeType = "prefixExpression";
-    export const postfixExpression: CodeNodeType = "postfixExpression";
-    export const binaryExpression: CodeNodeType = "binaryExpression";
-    
-    export const identifier: CodeNodeType = "identifier";
-
-    export const literalNode: CodeNodeType = "literal";
-    export const numericLiteral: CodeNodeType = "numericLiteral";
-    export const stringLiteral: CodeNodeType = "stringLiteral";
-    export const arrayLiteral: CodeNodeType = "arrayLiteral";
+    export const memberAccess: CodeNodeType = "expression/memberAccess";
+    export const callExpression: CodeNodeType = "expression/callExpression";
+    export const numericLiteral: CodeNodeType = "expression/numericLiteral";
+    export const stringLiteral: CodeNodeType = "expression/stringLiteral";
+    export const arrayLiteral: CodeNodeType = "expression/arrayLiteral";
+    export const mapLiteral: CodeNodeType = "expression/mapLiteral";
+    export const callableLiteral: CodeNodeType = "expression/callableLiteral";
 }
 export const Types = CodeNodeTypes;
-
-// export namespace Helpers {
-    
-//     export function hasType(node: CodeNode, type: CodeNodeType) {
-//         return node.type.split('/').indexOf(type) >= 0;
-//     } 
-
-//     export function hasChildren(node: CodeNode) {
-//         return Helpers.hasType(node, Types.scope);
-//     }
-
-//     export function maybeChildren(node: CodeNode) : CodeNode[] {
-//         if (Helpers.hasType(node, Types.scope)) {
-//             return (node as ScopeNode).children;
-//         }
-//         return [];
-//     }
-
-//     export function declaredIdentifiersAtNode(node: CodeNode, searchSource: CodeNode = node) : CodeNode[] {
-//         if (!node.parent) {
-//             return [];
-//         }
-
-//         let identifiersHere: CodeNode[] = [];
-//         let children = this.maybeChildren(node);
-        
-//         // Only add children up to source if source is child,
-//         // i.e. declared variables after the source are not available yet
-//         for (let i = 0; i < children.length; i++) {
-//             const child = children[i];
-//             if (child._id === searchSource._id) {
-//                 break;
-//             }
-//             identifiersHere = identifiersHere.concat(child);
-//         }
-
-//         return identifiersHere.concat(this.declaredIdentifiersAtNode(node.parent));
-//     }
-
-//     export function getAllowedChildTypes(node: CodeNode) {
-//         let types: string[] = [];
-//         if (Helpers.hasType(node, Types.scope)) {
-//             types.push(Types.declaration);
-//             types.push(Types.statement);
-//             types.push(Types.func);
-//         }
-//         return types;
-//     }
-
-//     /// Typing is fast, don't force users to use mouse input to create values
-//     /// everything can still be parsed
-//     ///
-//     /// As they're typing, show parsed results or origin of variable if unable to parse, or nothing
-//     export function parseStringToVariable(str: string) : TypedValue | void {
-
-//         if (str === 'true' || str === 'false') {
-//             return {
-//                 type: 'boolean',
-//                 value: Boolean(str)
-//             }
-//         }
-//         if (/"[^"]*"/.test(str)) {
-//             return {
-//                 type: 'string',
-//                 value: str.substr(1, str.length - 2)
-//             }
-//         }
-//         if (/\d*\.\d+/g.test(str)) {
-//             return {
-//                 type: 'float',
-//                 value: parseFloat(str)
-//             }
-//         }
-//         if (/\d+/.test(str)) {
-//             return {
-//                 type: 'integer', // TODO: Implement different variants of ints/floats e.g. int32, uint32, float16
-//                 value: parseInt(str)
-//             }
-//         }
-//         if (/\[.*\]/.test(str)) {
-//             return parseArray(str);
-//         }
-
-//         // If what they've typed isn't a value, they must be referring to a variable
-//         return null;
-//     }
-
-//     function parseArray(str: string) : TypedValue {
-//         const removeBrackets = str.substr(1, str.length - 2);
-//         return {
-//             type: 'array',
-//             value: str.split(',').map(s => parseStringToVariable(s))
-//         }
-//     }
-// }
 
 interface CodeNodeRuntime {
     events: {
@@ -124,6 +25,8 @@ interface CodeNodeRuntime {
         nodeError: EventSource<string>
     }
 }
+
+type Identifier = string;
 
 export interface CodeNode {
     _id?: string
@@ -136,35 +39,20 @@ export interface CodeNode {
     _parent: CodeNode,    
 }
 
-export interface StructDefinitionNode {
-    
-}
-
 export interface AssignmentNode extends CodeNode {
-    identifier: ValueNode,
-    valueExpression?: ExpressionNode,
+    identifier: Identifier,
+    valueExpression?: ExpressionType,
 }
 
 export interface DeclarationNode extends CodeNode {
     mutable: boolean
-    identifier: ValueNode,
-    valueExpression?: ExpressionNode,
-    typeExpression?: ExpressionNode
-}
-
-export interface ScopeNode extends CodeNode {
-    children: CodeNode[]
+    identifier: Identifier,
+    valueExpression?: ExpressionType,
+    typeExpression?: ExpressionType
 }
 
 export interface ImportNode extends CodeNode {
-    identifier: string
-}
-
-export interface SwitchNode extends CodeNode {
-    branches: {
-        expression: ExpressionNode,
-        body: ScopeNode
-    }
+    identifier: Identifier
 }
 
 export interface TypeDeclaration extends CodeNode {
@@ -173,7 +61,7 @@ export interface TypeDeclaration extends CodeNode {
      * Every type must have a unique identifier not equal to one already created, which includes those that are preexisting such as
      * string, boolean, array, int32 etc. 
      */
-    typeIdentifier: string,
+    identifier: Identifier,
     
     /**
      * Type expressions can consist of existing type identifiers and modifiers
@@ -193,34 +81,47 @@ export interface TypeDeclaration extends CodeNode {
      * Because we have a JavaScript runtime environment, we can modify types as we write code and
      * get the result of each type at compile time using the javascript runtime. Then, use these types
      * to compile into something lower-level
+     * 
+     * We use expression node here because it could be possible to use things like binary expressions to modify
+     * types such as unifying two types together with & etc.
      */
-    typeExpression: ExpressionNode 
+    typeExpression: ExpressionType 
 }
 
+export type ExpressionType = Identifier | ValueNode<any> | CallExpressionNode | MemberAccessExpression;
 
-export interface ExpressionNode extends CodeNode {
-    expression: ValueNode | PrefixExpressionNode | BinaryExpressionNode | CallExpressionNode
+export interface MemberAccessExpression extends CodeNode {
+    member: Identifier
+    subject: ExpressionType
+}
+
+export interface CallableLiteral extends CodeNode {
+    input: ExpressionType,
+    body: ModuleChild
+    output: ExpressionType
 }
 
 export interface PrefixExpressionNode extends CodeNode {
     operator: string,
-    subExpression: ExpressionNode 
+    subExpression: ExpressionType 
 }
 
-export interface ValueNode extends CodeNode {
-    value: any
+// This is what we use for any literal type, because we store the value 
+// in its JS form and can gather the data and type from that
+export interface ValueNode<T> extends CodeNode {
+    value: T
 }
+export type ArrayLiteralNode = ValueNode<Array<ExpressionType>>;
+export type NumericLiteralNode = ValueNode<number>;
+export type StringLiteralNode = ValueNode<string>;
+export type MapLiteralNode = ValueNode<{[key: string] : any}>;
+
 export interface CallExpressionNode extends CodeNode {
-    subExpression: ExpressionNode
-    argument?: ExpressionNode
-}
-export interface BinaryExpressionNode extends CodeNode {
-    lhs: ExpressionNode,
-    operator: string,
-    rhs: ExpressionNode
+    target: ExpressionType
+    input?: ExpressionType
 }
 
-export type ModuleChild = DeclarationNode | ExpressionNode | AssignmentNode;
+export type ModuleChild = DeclarationNode | ExpressionType | AssignmentNode | TypeDeclaration | ModuleNode;
 export interface ModuleNode extends CodeNode {
 
     /**
@@ -231,29 +132,10 @@ export interface ModuleNode extends CodeNode {
     children: ModuleChild[]
 
     // IDEA: Short name and a fully qualified name for imports etc.
-    identifier: ValueNode
+    identifier: Identifier
 
     // IDEA: Some stuff to setup this module for the evironment if it calls code from another language/runtime so that the module
     // can be treated as if normal
-}
-
-/**
- * Used for input, should be able to be inserted anywhere
- * Can also put things like comments in here
- */
-export interface TextNode extends ScopeNode {
-    text: string
-}
-
-export interface FunctionNode extends ScopeNode {
-    typeIdentifier: string
-    identifier: string
-}
-
-
-export interface TestNode extends CodeNode {
-    function: FunctionNode,
-    tests: {input: ExpressionNode, output: ExpressionNode}[]
 }
 
 export function createProgram() : ModuleNode {
@@ -262,8 +144,10 @@ export function createProgram() : ModuleNode {
     } as ModuleNode;
 }
 
-export interface TypedValue {
-    type: string,
-    value: any
+export function createArrayLiteral(values: ExpressionType[]) : ArrayLiteralNode {
+    return {
+        type: CodeNodeTypes.arrayLiteral,
+        value: values,
+        _parent: null    
+    }
 }
-

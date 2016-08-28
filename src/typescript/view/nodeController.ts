@@ -6,7 +6,7 @@ import * as utils from '../util/index';
 import {Result} from '../util/index';
 import {EventSource} from '../util/events';
 import * as Frontend from '../frontend/index';
-import {NodeTextDescription, NodeTextComponent, NodeTextSpec} from '../frontend/index';
+import {NodeTextDescription, TextComponent, TextSpec} from '../frontend/index';
 import * as js from '../frontend/javascriptStyle';
 import {NodeEvents, NodeTextController, ComponentDescription} from './index';
 import * as parserCustom from '../parser/custom';
@@ -51,9 +51,9 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
             }
         },
         handleChildComponentChange: (indexes, newComponent) => {
-            const currentComponents = nodeDescription.componentsFromNode(node);
+            const currentComponents = nodeDescription.componentsFromValue(node);
             currentComponents[indexes[0]] = newComponent;
-            nodeDescription.updateNodeFromComponents(currentComponents, node);
+            nodeDescription.updateValueFromComponents(currentComponents, node);
             
             return {
                 errors: [],
@@ -63,7 +63,7 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
         },
         render(parent: HTMLElement) {
 
-            const processDescription = (desc: NodeTextComponent, index: number, array: NodeTextComponent[], indexInArray: number) => {
+            const processDescription = (desc: TextComponent, index: number, array: TextComponent[], indexInArray: number) => {
                 
                 if (desc == null) {
                     desc = '';
@@ -84,7 +84,7 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
                     startComponentNodesByIndex[index] = domNode[0];
                 }
                 else if (Array.isArray(desc)) {
-                    const asArray = desc as NodeTextComponent[];
+                    const asArray = desc as TextComponent[];
                     asArray.forEach((each, index) => processDescription(each, index, array, indexInArray));
                 }
                 else {
@@ -98,7 +98,7 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
                 }
             };
             
-            nodeDescription.componentsFromNode(node).forEach((component, index, array) => {
+            nodeDescription.componentsFromValue(node).forEach((component, index, array) => {
 
                 const asArray = utils.forceArray(component);
                 asArray.forEach((component, indexInArray) => {

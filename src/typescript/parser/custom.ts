@@ -1,4 +1,4 @@
-import {NodeTextDescription, NodeTextSpec} from '../frontend/index';
+import {NodeTextDescription, TextSpec} from '../frontend/index';
 import * as nearley from './nearley';
 import * as _ from 'underscore';
 import {Result} from '../util'
@@ -67,7 +67,7 @@ const asNewRule = (rule: string, context: GrammarCreationContext, newRule: boole
     return newRuleName;
 }
 
-export const generateNearleyGrammarFromTextSpec = (name: string, spec: NodeTextSpec) : string => {
+export const generateNearleyGrammarFromTextSpec = (name: string, spec: TextSpec) : string => {
 
     let creationContext = getNewContext();
 
@@ -96,7 +96,7 @@ export const generateNearleyGrammar = (description: NodeTextDescription<any>) : 
     return grammar;
 }
 
-const generateNearleyRulesFromTextSpecs = (name: string, components: NodeTextSpec[], context: GrammarCreationContext, parentRule?: string) : string => {    
+const generateNearleyRulesFromTextSpecs = (name: string, components: TextSpec[], context: GrammarCreationContext, parentRule?: string) : string => {    
     if (context.rulesByName[name]) {
         return name;
     }
@@ -113,7 +113,7 @@ const generateNearleyRulesFromTextSpecs = (name: string, components: NodeTextSpe
     return name;
 }
 
-export const parseSpec = (spec: NodeTextSpec, input: string) : Result<any> => {
+export const parseSpec = (spec: TextSpec, input: string) : Result<any> => {
 
     let grammar = "";
     if (typeof(spec) === 'string') {
@@ -144,7 +144,7 @@ export const parseSpec = (spec: NodeTextSpec, input: string) : Result<any> => {
     return nearley.parse(compiled.result, input);
 }
 
-export const generateNearleyGrammarFromSpec = (spec: NodeTextSpec) : string => {
+export const generateNearleyGrammarFromSpec = (spec: TextSpec) : string => {
 
     const creationContext = getNewContext();    
     const rule = newGetRuleDefinitionForTextSpec(spec, creationContext, null);
@@ -173,7 +173,7 @@ export const callFunction = (func: any, args: Array<any>, context: GrammarCreati
 
 export const sanitizeString = str => str.replace(/"/g, '\\"'); 
 
-export const newGetRuleDefinitionForTextSpec = (spec: NodeTextSpec, context: GrammarCreationContext, depthFromNode: number, parentRule?: NodeTextSpec) : string => {
+export const newGetRuleDefinitionForTextSpec = (spec: TextSpec, context: GrammarCreationContext, depthFromNode: number, parentRule?: TextSpec) : string => {
     const asAny = spec as any;
 
     // Should return as a single element or null
@@ -189,7 +189,7 @@ export const newGetRuleDefinitionForTextSpec = (spec: NodeTextSpec, context: Gra
     }
     else if (asAny.or) {
         // One of a choice of spec
-        const or = asAny.or as NodeTextSpec[];
+        const or = asAny.or as TextSpec[];
         const rule = '(' + or.map(spec => newGetRuleDefinitionForTextSpec(spec, context, depthFromNode)).join(' | ') + ')';
         return asNewRule(rule, context, depthFromNode <= 1);
     }
@@ -202,7 +202,7 @@ export const newGetRuleDefinitionForTextSpec = (spec: NodeTextSpec, context: Gra
     // Following should return as arrays
     else if (asAny.all) {
         // All components in a row
-        const all = asAny.all as NodeTextSpec[];
+        const all = asAny.all as TextSpec[];
         const rule = '(' + all.map(component => newGetRuleDefinitionForTextSpec(component, context, depthFromNode + 1)).join(' ') + ')';
         return asNewRule(rule, context, true);
     }
@@ -230,7 +230,7 @@ export const newGetRuleDefinitionForTextSpec = (spec: NodeTextSpec, context: Gra
         // Assume it's a node text description object
         const rule = description.getTextSpecs().map(spec => 
             newGetRuleDefinitionForTextSpec(spec, context, 0, description)
-        ).join(' ') + ' ' + callFunction(description.updateNodeFromComponents, ['data'], context);
+        ).join(' ') + ' ' + callFunction(description.updateValueFromComponents, ['data'], context);
 
         context.rulesByName[description.id] = rule;
         return asNewRule(rule, context, false);
@@ -238,11 +238,11 @@ export const newGetRuleDefinitionForTextSpec = (spec: NodeTextSpec, context: Gra
     
 };
 
-const getRuleDefinitionForTextSpec = (component: NodeTextSpec, context: GrammarCreationContext, parentRule?: string) : string => {
+const getRuleDefinitionForTextSpec = (component: TextSpec, context: GrammarCreationContext, parentRule?: string) : string => {
 
     const asAny = component as any;
 
-    const getActualRule = (component: NodeTextSpec, context: GrammarCreationContext, parentRule?: string) => {
+    const getActualRule = (component: TextSpec, context: GrammarCreationContext, parentRule?: string) => {
         if (typeof(component) === 'string') {
             // String literal
             return `"${(component as string).replace(/"/g, '\\"')}"`;
@@ -264,12 +264,12 @@ const getRuleDefinitionForTextSpec = (component: NodeTextSpec, context: GrammarC
         }
         else if (asAny.all) {
             // All components in a row
-            const all = asAny.all as NodeTextSpec[];
+            const all = asAny.all as TextSpec[];
             return '(' + all.map(component => getRuleDefinitionForTextSpec(component, context, parentRule)).join(' ') + ')';
         }
         else if (asAny.or) {
             // One of a choice of components
-            const or = asAny.or as NodeTextSpec[];
+            const or = asAny.or as TextSpec[];
             return '(' + or.map(component => getRuleDefinitionForTextSpec(component, context, parentRule)).join(' | ') + ')';
         }
         else if (asAny['?'] || asAny['*'] || asAny['+']) {
@@ -278,7 +278,7 @@ const getRuleDefinitionForTextSpec = (component: NodeTextSpec, context: GrammarC
             }
 
             const quantifier = _.keys(asAny)[0] as string,
-                component = _.values(asAny)[0] as NodeTextSpec,
+                component = _.values(asAny)[0] as TextSpec,
                 childRule = generateNearleyRulesFromTextSpecs(getChildRuleName(context, parentRule), [component], context, parentRule);
 
             return childRule + ':' + quantifier;

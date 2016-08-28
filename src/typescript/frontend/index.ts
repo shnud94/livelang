@@ -6,27 +6,27 @@ export type TextToCode<T extends AST.CodeNode> = (text: string) => T;
 /**
  * A specification for matching against text to create a parser grammar
  */
-export type NodeTextSpec = 
+export type TextSpec = 
     
     // Should be parsed as single string or null
     string // Match a literal string
     | {charset: string}
-    | {or: NodeTextSpec[]} // Choice of options
-    | {'?': NodeTextSpec} // 0-1
+    | {or: TextSpec[]} // Choice of options
+    | {'?': TextSpec} // 0-1
 
     // Should be parsed as array, inner elements follow their own rules
-    | {all: NodeTextSpec[]} // All in sequence
-    | {'*': NodeTextSpec} // 0-inf
-    | {'+': NodeTextSpec} // 1-inf
+    | {all: TextSpec[]} // All in sequence
+    | {'*': TextSpec} // 0-inf
+    | {'+': TextSpec} // 1-inf
 
-    // Should be parsed as a node, as that's what we're describing
-    | NodeTextDescription<any>    
+    // Should be parsed as a value/node, as that's what we're describing
+    | TextDescription<any>    
 
 /**
  * A text component after being parsed or after being generated from a node
  */
-export type NodeTextComponent = NodeTextComponentType | NodeTextComponentType[];
-type NodeTextComponentType =
+export type TextComponent = TextComponentType | TextComponentType[];
+type TextComponentType =
     string 
     /**
      * Look for a description for this node and use that. If you use this it
@@ -44,12 +44,7 @@ breaksLine?: boolean,
     tabsNextLine?: number 
 }
 
-/**
- * Something that describes the textual representation of a node, both how it gets created
- * from text, and how it gets transformed back to text once it's in its node form
- */
-export interface NodeTextDescription<T extends AST.CodeNode> {
-
+export interface TextDescription<T> {
     /**
      * Used for the rule in the grammar
      */
@@ -61,10 +56,16 @@ export interface NodeTextDescription<T extends AST.CodeNode> {
      * 
      * Note: This has to be a function to avoid block scoped ordering issues
      */
-    getTextSpecs: () => NodeTextSpec[]
-    
-    componentsFromNode: (node: T) => NodeTextComponent[],
-    updateNodeFromComponents(components: NodeTextComponent[], prev?: T) : T
+    getTextSpecs: () => TextSpec[]
 
+    componentsFromValue: (node: T) => TextComponent[],
+    updateValueFromComponents(components: TextComponent[], prev?: T) : T
+}
+
+/**
+ * Something that describes the textual representation of a node, both how it gets created
+ * from text, and how it gets transformed back to text once it's in its node form
+ */
+export interface NodeTextDescription<T extends AST.CodeNode> extends TextDescription<T> {    
     displayOptions?: () => NodeTextDisplayOptions[]
 }
