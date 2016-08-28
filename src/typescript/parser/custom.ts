@@ -14,22 +14,6 @@ interface GrammarCreationContext {
     charsetsSoFar: {[charset: string] : string}
 }
 
-export function flatten<T>(data: Array<T>, depth: number = -1) {
-    if (!Array.isArray(data)) return data;
-
-    return data.reduce(function(acc, val) {
-        return acc.concat(Array.isArray(val) ? flatten(val as any as Array<T>, depth - 1) : val);
-    }, []);
-}
-
-export function flattenJoin<T>(data: Array<T>, depth: number = -1) : string {
-    if (!Array.isArray(data)) return data as any;
-
-    return data.reduce(function(acc, val) {
-        return acc.concat(Array.isArray(val) ? flatten(val as any as Array<T>, depth - 1) : val);
-    }, []).join('');
-}
-
 const getNewContext = () : GrammarCreationContext => {
     return {
         functions: {},
@@ -65,52 +49,6 @@ const asNewRule = (rule: string, context: GrammarCreationContext, newRule: boole
     const newRuleName = getChildRuleName(context, parentRule)
     context.rulesByName[newRuleName] = rule; 
     return newRuleName;
-}
-
-export const generateNearleyGrammarFromTextSpec = (name: string, spec: TextSpec) : string => {
-
-    let creationContext = getNewContext();
-
-    generateNearleyRulesFromTextSpecs(name, [spec], creationContext, name);
-    let grammar = "";
-    // By this point, rules by name should have all rules in it
-    _.keys(creationContext.rulesByName as any).forEach(key => {
-        grammar += `${key} -> ${creationContext.rulesByName[key]}\n\n`;
-    });
-
-    return grammar;
-}
-
-export const generateNearleyGrammar = (description: NodeTextDescription<any>) : string => {
-    
-    let creationContext = getNewContext();
-
-    generateNearleyRulesFromTextSpecs(description.id, description.getTextSpecs(), creationContext, description.id);
-
-    let grammar = "";
-    // By this point, rules by name should have all rules in it
-    _.keys(creationContext.rulesByName as any).forEach(key => {
-        grammar += `${key} -> ${creationContext.rulesByName[key]}\n\n`;
-    });
-
-    return grammar;
-}
-
-const generateNearleyRulesFromTextSpecs = (name: string, components: TextSpec[], context: GrammarCreationContext, parentRule?: string) : string => {    
-    if (context.rulesByName[name]) {
-        return name;
-    }
-    context.rulesByName[name] = 'inProgress';
-    
-    const rules = [];
-    for (let i = 0; i < components.length; i++) {
-        rules.push(`${asNewRule(getRuleDefinitionForTextSpec(components[i], context, parentRule), context, true, parentRule)}`);
-    }
-    const rule = rules.join(' ');
-
-    context.namesByRule[rule] = name;
-    context.rulesByName[name] = rule;
-    return name;
 }
 
 export const parseSpec = (spec: TextSpec, input: string) : Result<any> => {
@@ -236,54 +174,4 @@ export const newGetRuleDefinitionForTextSpec = (spec: TextSpec, context: Grammar
         return asNewRule(rule, context, false);
     }
     
-};
-
-const getRuleDefinitionForTextSpec = (component: TextSpec, context: GrammarCreationContext, parentRule?: string) : string => {
-
-    const asAny = component as any;
-
-    const getActualRule = (component: TextSpec, context: GrammarCreationContext, parentRule?: string) => {
-        if (typeof(component) === 'string') {
-            // String literal
-            return `"${(component as string).replace(/"/g, '\\"')}"`;
-        }
-        else if (component instanceof RegExp) {
-            console.error('RegExp not supported for nearley grammar');
-        }
-        else if (asAny.charset) {
-            return asNewRule(`[${asAny.charset}] {% ${flatten.toString()} %}`, context, true, parentRule);
-        }
-        else if ((component as NodeTextDescription<any>).id) {
-            // Assume it's a node text description object
-            const description = component as NodeTextDescription<any>;
-            if (!context.rulesByName[description.id]) {
-                generateNearleyRulesFromTextSpecs(description.id, description.getTextSpecs(), context, parentRule);
-            }
-
-            return description.id;
-        }
-        else if (asAny.all) {
-            // All components in a row
-            const all = asAny.all as TextSpec[];
-            return '(' + all.map(component => getRuleDefinitionForTextSpec(component, context, parentRule)).join(' ') + ')';
-        }
-        else if (asAny.or) {
-            // One of a choice of components
-            const or = asAny.or as TextSpec[];
-            return '(' + or.map(component => getRuleDefinitionForTextSpec(component, context, parentRule)).join(' | ') + ')';
-        }
-        else if (asAny['?'] || asAny['*'] || asAny['+']) {
-            if (_.keys(asAny).length !== 1) {
-                console.error('Wat r u doin');
-            }
-
-            const quantifier = _.keys(asAny)[0] as string,
-                component = _.values(asAny)[0] as TextSpec,
-                childRule = generateNearleyRulesFromTextSpecs(getChildRuleName(context, parentRule), [component], context, parentRule);
-
-            return childRule + ':' + quantifier;
-        }
-    }
-
-    return getActualRule(component, context, parentRule);    
 };
