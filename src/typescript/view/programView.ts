@@ -15,8 +15,7 @@ import * as typeChecker from '../types/index';
 export type ControllerProvider = (node: AST.CodeNode) => NodeTextController;
 export interface DOMData {
     representedNode?: AST.CodeNode
-    componentController?: NodeTextController
-    index: number,
+    nodeTextState?: NodeTextController
     initial: string
 }
 
@@ -31,9 +30,52 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
     const rootController = basicController(program.data);
 
     const layoutAll = () => {
-        $(container).find('._layout').remove();
         layoutRange(container.children()[0] as HTMLElement, container.children().last()[0] as HTMLElement);
     };
+
+    const nodeBit = () => $('<span>').addClass('node').attr('contentEditable', 'true');
+
+    const convertSpecialChars = (node: HTMLElement) => {
+        if ($(node).hasClass('_layout')) return;
+
+        const result = [];
+        const nodeData = $(node).data() as DOMData;
+        const cloneWithChars = chars => typeof(chars) === 'string' ? result.push($(node).addClass('_layout').clone(true).html(chars)[0]) : undefined;
+  
+        cloneWithChars(node.innerHTML.split('').reduce((prev, char) => {
+            if (char === '\n') {
+                cloneWithChars(prev);
+                cloneWithChars('\n');
+                result.push($('<br>').addClass('_layout')[0]);
+                return null;
+            }
+            else if (char === '\t') {
+                cloneWithChars(prev);
+                cloneWithChars('\t');
+                cloneWithChars('&nbsp;&nbsp;&nbsp;&nbsp;');
+                return null;
+            }
+            else if (char === ' ') {
+                cloneWithChars(prev);
+                cloneWithChars('&nbsp;');
+                return null;
+            }
+            else {
+                return typeof(prev) === 'string' ? (prev + char) : char;
+            }            
+        }, null));
+
+        result.forEach(r => {
+            $(r).data('initial', r.innerText);
+        });
+
+        if (!result.length) return;
+
+        $(node).replaceWith(result);
+        if (nodeData.nodeTextState.firstNode === node) {
+            nodeData.nodeTextState.firstNode = result[0];
+        }
+    }
 
     const setCharsIntoController = (controller: NodeTextController, chars: number) => {
 
@@ -41,22 +83,19 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
         let accum = 0;
 
         while (currentNode && !(chars >= accum && chars < accum + $(currentNode).text().length)) {
-            currentNode = $(currentNode).next()[0];
             accum += $(currentNode).text().length;
+            currentNode = $(currentNode).next()[0];            
         } 
 
         if (currentNode) {
-            setTimeout(() => {
-                $(currentNode).click();
-                util.setCaretPosition(currentNode, chars - accum);
-            }, 0);
+            util.setCaretPosition(currentNode, chars - accum);
         }
     }
 
     const getCharsIntoController = (controller: NodeTextController, focused: HTMLElement) => {
         let accum = util.getCaretPosition(focused);
 
-        while (focused !== controller.firstNode) {
+        while (focused && focused !== controller.firstNode) {
             accum += $(focused).text().length;
             focused = $(focused).prev()[0];           
         }
@@ -64,95 +103,70 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
         return accum;
     }
 
-    const renderAll = (controller?: NodeTextController, focused?: HTMLElement) => {
+    const isEditable = (j: JQuery) => {
+        return j && j.length && !!j.attr('contentEditable') && j.text() !== '\n' && j.text() !== '\t';
+    }
+    const editableSibling = (el, direction) => {
+        return direction < 0 ? util.firstPrev($(el), isEditable) : util.firstNext($(el), isEditable);
+    }
 
-        const typeCheck = typeChecker.typeCheckModule(program.data);
-        typeCheck.errors.forEach(e => console.error(e));
-        typeCheck.warnings.forEach(w => console.warn(w));
+    const elementsFromController = (controller: NodeTextController) : HTMLElement[] => {
 
+        let result = controller.render();
+        let parts: HTMLElement[] = [];
+        controller.firstNode = null;
+
+        result.renderables.forEach(renderable => {
+
+            if (typeof(renderable.component) === 'string') {
+                const part = nodeBit().text(renderable.component as string).data({
+                    initial: renderable.component as string,
+                    representedNode: controller.node,
+                    nodeTextState: controller
+                } as DOMData);
+                parts.push(part[0]);
+            }
+            else {
+                // Must be a node
+                parts = parts.concat(elementsFromController(basicController(renderable.component as AST.CodeNode, controller)));
+            }
+        });
+
+        controller.firstNode = parts[0];
+        return parts;
+    }
+
+    const renderControllerRange = (controller: NodeTextController, range: HTMLElement[], focused?: HTMLElement) => {
         let charsFromControllerFirstNode: number;
-        if (controller && focused) {
+        if (focused) {
             charsFromControllerFirstNode = getCharsIntoController(controller, focused);
         }
+        
+        const prev = $(range[0]).prev();
+        if (range.length > 0) {
+            $(range).remove();
+        }
 
-        $(container).empty();
-        rootController.render({
-            parent: container[0],
-            typeCheckContext: typeCheck
-        });
+        const rendered = $(elementsFromController(controller));
+        if (prev[0]) {
+            rendered.insertAfter(prev);
+        }
+        else {
+            container.empty();
+            rendered.appendTo(container);
+        }
+        
         layoutAll();
 
         if (focused) {
             setCharsIntoController(controller, charsFromControllerFirstNode);
         }
-    };
-
-    const renderControllerRange = (controller: NodeTextController, range: HTMLElement[], focused?: HTMLElement) => {
-        renderAll(controller, focused);
-        // const prev = $(range[0]).prev();
-        
-        // if (range.length > 0) {
-        //     $(range).remove();
-        // }
-
-        // const tempContainer = $('<div>');
-        // const renderContext = {
-        //     parent: tempContainer[0],
-        // }
-        
-        // controller.render(renderContext);
-        // const rendered = tempContainer.children();
-        // if (prev[0]) {
-        //     rendered.insertAfter(prev);
-        // }
-        // else {
-        //     container.empty();
-        //     rendered.appendTo(container);
-        // }
-        
-        // layoutAll();
-    }
-    renderAll();    
+    }  
 
     function layoutRange(start: HTMLElement, end: HTMLElement) {
-
         let tabLevel = 0;
         util.getElementsInRange(start, end).forEach(el => {
-            const getDisplayOptions = (el) => {
-                const data = $(el).data() as DOMData;
-                if (data.componentController && data.componentController.description && data.componentController.description.displayOptions) {
-                    return data.componentController.description.displayOptions()[data.index];
-                } 
-            } 
-
-            const displayOptions = getDisplayOptions(el);
-            
-            if (displayOptions) {
-                // Do stuff
-            }
-            $(el).html($(el).html().replace(/ /g, '&nbsp;'));
-
-            const content = $(el).html();
-            if (content.indexOf('\n') >= 0) {
-                $('<br />').insertAfter(el).addClass('_layout');
-            }            
-
-            const $before = $(el).prev(':not(._layout)');
-            if ($before.length == 0) {
-                return;
-            }
-
-            const beforeDisplayOptions = getDisplayOptions($before[0]);
-            if (beforeDisplayOptions) {
-                // Tab level calculation needs to happen before line break
-                if (typeof(beforeDisplayOptions.tabsNextLine) === 'number') {
-                    tabLevel += beforeDisplayOptions.tabsNextLine;
-                }
-                if (beforeDisplayOptions.breaksLine) {
-                    $('<br />').insertBefore(el).addClass('_layout');
-                    // $(el).css({'marginLeft': `${tabLevel * 2}em`});
-                }                 
-            }
+            convertSpecialChars(el);
         });
     };
 
@@ -162,24 +176,25 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
             let dirNum = direction === 'left' ? -1 : 1;
 
             if (fraction === 0 && dirNum === -1) {
-                const prev = $(util.firstPrev($(element), $el => $el.hasClass('node') && $el.text().length > 0));
-                if (prev[0]) {
+                const prev = editableSibling($(element), -1);
+                if (prev) {
                     prev.focus();
                     event.preventDefault();
-                    util.setCaretPosition(prev[0] as HTMLElement, $(prev).text().length - 1);
+                    util.setCaretPosition(prev, $(prev).text().length - 1);
                 }
             }
             else if (fraction === 1 && dirNum === 1) {
-                const next = $(util.firstNext($(element), $el => $el.hasClass('node') && $el.text().length > 0));
-                if (next[0]) {
+                
+                const next = editableSibling($(element), 1);
+                if (next) {
                     next.focus();
                     event.preventDefault();
-                    util.setCaretPosition(next[0] as HTMLElement, 1);
+                    util.setCaretPosition(next, 1);
                 }             
             }
         }
         else if (direction === 'up' || direction === 'down') {
-            
+            //debugger;
             event.preventDefault();
             let dirNum = direction === 'down' ? 1 : -1;
 
@@ -193,20 +208,11 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
                         elWidth = $(el).outerWidth();
                     
                     if (el !== origin) {
-
-                        let isHit = false;
-
-                        if (dirNum < 0) {
-                            isHit = x < (elLeft + elWidth);
-                        }
-                        else {
-                            isHit = x > elLeft;
-                        }
-                        
+                        let isHit = elLeft <= x && elLeft + elWidth > x;
                         if (isHit) {
                             return {
                                 hit: el,
-                                xFraction: Math.min(1, Math.max(0, (x - elLeft) / elWidth))
+                                xFraction: Math.min(1, Math.max(0, (x - elLeft) / elWidth) + 0.1)
                             };
                         }
                     }
@@ -214,7 +220,7 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
                     if (runCount < 30) {
                         return findHitEl(
                             origin, 
-                            $(el)[direction < 0 ? 'prev' : 'next']('.codeNode')[0] as HTMLElement, 
+                            editableSibling($(el), direction),
                             runCount + 1
                         );
                     }
@@ -234,7 +240,6 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
     };
 
     const keyup = _.debounce((event: KeyboardEvent) => {
-
         const $target = $(event.target);
         const data = $target.data() as DOMData;
         const value = $target.text();
@@ -242,53 +247,26 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
         if (value === data.initial) return;
 
         const results: Result<any>[] = [];
-        let controller = data.componentController;
-        const indexes = [data.index];
+        let controller = data.nodeTextState;
         
         while (controller) {
-
-            const controllerNodeRange = getControllerNodeRange(event.target as HTMLElement, controller);
-            // First try and reparse just the one component in this node that's changed
-            const index = indexes[0];
-            const specs = controller.description.getTextSpecs();
-            const parseResult = parser.parseSpecCached(specs[index], value, controller.description.id + index.toString());
-            results.push(parseResult);
-
-            if (parseResult.result) {
-                const changeResult = controller.handleChildComponentChange(indexes, parseResult.result);                    
-                if (changeResult.success) {
-                    renderControllerRange(controller, controllerNodeRange, event.target as HTMLElement);
-                    return;
-                }
-            }      
-
-            // If we're not successfull, reparse the whole thing
-            
+            const controllerNodeRange = getControllerNodeRange(controller);            
             const textInRange = util.textInNodeRange(controllerNodeRange[0], controllerNodeRange.last());
-            const wholeParseResult = parser.parseSpecCached(controller.description, textInRange, controller.description.id);
+            const wholeParseResult = parser.parseSpecCached(controller.description, textInRange.trim(), controller.description.id);
             results.push(wholeParseResult);
 
             if (wholeParseResult.result) {
-                const changeResult = controller.handleComponentChange(wholeParseResult.result);
+                const changeResult = controller.handleComponentChange(wholeParseResult.result, textInRange);
                 if (changeResult.success) {
-                    // TODO: Optimisation for rendering here
-                    // All you need to do, get all nodes for the range (you've already got them)
-                    // Remove them, reinsert at same position
-                    // Simple as that m8
                     renderControllerRange(controller, controllerNodeRange, event.target as HTMLElement);
                     return;
                 }
             }
 
-            if (controller.indexInArray) {
-                indexes.unshift(controller.indexInArray);
-            }
-            indexes.unshift(controller.indexInParent);
             controller = controller.parentController;
         }
 
-        results.forEach(result => console.error(result.error));
-     
+        results.forEach(result => console.error(result.error));     
     }, 500);
 
     $(dom).on({
@@ -298,30 +276,6 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
             const focused = event.target as HTMLElement;
             const pos = util.getCaretPosition(focused);
             const fraction = util.getCaretFraction(focused);
-
-            if (code === 13) {
-
-                if ($(focused).hasClass('-new-input')) {
-                    return;
-                }
-                // 13 - return
-                // 32 - space bar
-                event.preventDefault();
-                
-                if (fraction === 1 || fraction === 0) {
-                    const newSpan = $(code === 13 ? '<div>' : '<span>').attr('contentEditable', 'true').addClass('-new-input');
-
-                    if (fraction === 1) {
-                        newSpan.insertAfter(focused);
-                    }
-                    else if (fraction === 0) {
-                        newSpan.insertBefore(focused);
-                    }
-
-                    newSpan.focus();
-                }
-                return;
-            }
 
             if (code >= 37 && code <= 40) {
                 if (code === 37) {
@@ -343,6 +297,9 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
         'keyup': keyup,
         'change': keyup
     });
+
+    container.append(elementsFromController(rootController));
+    layoutAll();
 }
 
 export const hasControllerAsParent = (start: NodeTextController, search: NodeTextController) => {
@@ -351,23 +308,16 @@ export const hasControllerAsParent = (start: NodeTextController, search: NodeTex
     return start.parentController === search || hasControllerAsParent(start.parentController, search);
 }
 
-export const getControllerNodeRange = (start: HTMLElement, controller: NodeTextController) : HTMLElement[] => {
-    if (getDOMData(start).componentController !== controller) {
-        return [];
-    }
-
-    let nodes = [start];
+export const getControllerNodeRange = (controller: NodeTextController) : HTMLElement[] => {
+    const start = controller.firstNode;
     let check = ($el: JQuery) => {
-        if (!$el.hasClass('node')) {
+        const data =  getDOMData($el);
+        if (!data || !data.nodeTextState) {
             return true;
         }
 
-        const hasController = getDOMData($el).componentController != null;
-        return hasController && hasControllerAsParent(getDOMData($el).componentController, controller)
+        return hasControllerAsParent(getDOMData($el).nodeTextState, controller);
     }
-
-    let before = util.prevWhile($(start), check).filter(el => $(el).hasClass('node')); 
-    let after = util.nextWhile($(start), check).filter(el => $(el).hasClass('node'));
-    return [].concat(before, nodes, after); 
+    return [start].concat(util.nextWhile($(start), check).filter(el => $(el).hasClass('node')));
 }
 

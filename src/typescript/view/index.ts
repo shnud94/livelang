@@ -46,21 +46,29 @@ export interface NodeEvents {
     nodeChildInserted: EventSource<{index: number}>,
     nodeChildRemoved: EventSource<{index: number}>
 }
+
+export interface RenderOptions {
+
+}
+
+export interface RenderResult {
+    renderables: {
+        component: TextComponent,
+        options: RenderOptions
+    }[]
+}
+
 export interface NodeTextController {
 
-    node: AST.CodeNode,
+    node: AST.CodeNode
     description: NodeTextDescription<any>
-    events: NodeEvents,
-    
-    handleChildComponentChange(indexes: number[], newValue: TextComponent) : ComponentChangeResponse
-    handleComponentChange(newValue: TextComponent) : ComponentChangeResponse
+    events: NodeEvents
+
+    handleComponentChange(newValue: TextComponent, source: string) : ComponentChangeResponse
 
     parentController?: NodeTextController
-    render: (context: RenderContext) => void,
+    render: () => RenderResult
 
-    indexInParent?: number,
-    indexInArray?: number,
-
-    firstNode?: HTMLElement,
-    lastNode?: HTMLElement, 
+    firstNode?: HTMLElement
+    lastNode?: HTMLElement 
 }

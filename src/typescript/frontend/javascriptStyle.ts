@@ -104,11 +104,11 @@ export const numericLiteral: NodeTextDescription<AST.NumericLiteralNode> = {
     id: AST.CodeNodeTypes.numericLiteral,
     updateValueFromComponents: (components, prev) => {
         if (!prev) {
-            prev = {
+            prev = program.createNode({
                 type: AST.CodeNodeTypes.numericLiteral,
                 value: 0,
                 _parent: null
-            }
+            })
         }
         prev.value = parseFloat(flat(components));
         return prev;
@@ -134,11 +134,11 @@ export const stringLiteral: NodeTextDescription<AST.StringLiteralNode> = {
     id: AST.CodeNodeTypes.stringLiteral,
     updateValueFromComponents: (components, prev) => {
         const value = flat(components);
-        return {
+        return program.createNode({
             type: AST.CodeNodeTypes.stringLiteral,
             value: value.substr(1, value.length - 2),
             _parent: prev ? prev._parent : null
-        }
+        })
     },
     getTextSpecs() {
         return [
@@ -158,11 +158,11 @@ export const mapLiteral: NodeTextDescription<AST.MapLiteralNode> = {
     id: AST.CodeNodeTypes.mapLiteral,
     updateValueFromComponents: (components, prev) => {
         if (!prev) {
-            prev = {
+            prev = program.createNode({
                 type: AST.CodeNodeTypes.mapLiteral,
                 value: null,
                 _parent: prev ? prev._parent : null
-            }
+            })
         }
 
         prev.value = flat(components);
@@ -189,12 +189,12 @@ export const prefixExpression: NodeTextDescription<AST.CallExpressionNode> = {
     updateValueFromComponents: (components, prev) => {
 
         if (!prev) {
-            prev = {
+            prev = program.createNode({
                 _parent: null,
                 target: null,
                 input: null,
                 type: AST.CodeNodeTypes.callExpression
-            }
+            })
         }
 
         const valid = {'!':true,'-':true};
@@ -224,11 +224,11 @@ export const arrayLiteral: NodeTextDescription<AST.ArrayLiteralNode> = {
     updateValueFromComponents: (components, prev) => {
         
         if (!prev) {
-            prev = {
+            prev = program.createNode({
                 _parent: null,
                 value: null,
                 type: AST.CodeNodeTypes.arrayLiteral
-            }
+            });
         }
 
         const elements = flatten(components[1]).filter(el => typeof(el) === 'object') as AST.ExpressionType[]; 
@@ -263,12 +263,12 @@ export const memberAccessExpression: NodeTextDescription<AST.MemberAccessExpress
     updateValueFromComponents: (components, prev) => {
         
         if (!prev) {
-            prev = {
+            prev = program.createNode({
                 _parent: null,
                 subject: null,
                 member: null,
                 type: AST.CodeNodeTypes.memberAccess
-            }
+            })
         }
 
         prev.subject = flat(components[0]) as AST.ExpressionType;
@@ -293,12 +293,12 @@ export const callExpression: NodeTextDescription<AST.CallExpressionNode> = {
     updateValueFromComponents: (components, prev) => {
         
         if (!prev) {
-            prev = {
+            prev = program.createNode({
                 _parent: null,
                 input: null,
                 target: null,
                 type: AST.CodeNodeTypes.callExpression
-            }
+            })
         }
 
         prev.target = flat(components[0]) as AST.ExpressionType;
@@ -327,12 +327,12 @@ export const binaryExpression: NodeTextDescription<AST.CallExpressionNode> = (()
         updateValueFromComponents: (components, prev) => {
 
             if (!prev) {
-                prev = {
+                prev = program.createNode({
                     type: AST.CodeNodeTypes.callExpression,
                     _parent: null,
                     target: null,
                     input: null
-                }
+                })
             }
 
             prev.target = AST.createIdentifier(flat(components)[2]);
@@ -395,12 +395,12 @@ export const assignment: NodeTextDescription<AST.AssignmentNode> = {
     updateValueFromComponents: (components, prev) => {
         
         if (!prev) {
-            prev = {
+            prev = program.createNode({
                 type: AST.CodeNodeTypes.assignment,
                 _parent: null,
                 identifier: null,
                 valueExpression: null
-            };
+            })
         }
 
         prev.identifier = flat(components[0]) as AST.Identifier;
@@ -429,12 +429,12 @@ export const typeDeclaration: NodeTextDescription<AST.TypeDeclaration> = {
     updateValueFromComponents: (components, prev) => {
         
         if (!prev) {
-            prev = {
+            prev = program.createNode({
                 type: AST.CodeNodeTypes.typeDeclaration,
                 _parent: null, // TODO: How are we going to make sure parent isn't null when first creating a node?
                 identifier: null,
                 typeExpression: null
-            };
+            });
         }
 
         prev.identifier = assignParent(flat(components[2]), prev);
@@ -468,14 +468,14 @@ export const declaration: NodeTextDescription<AST.DeclarationNode> = {
     updateValueFromComponents: (components, prev) => {
         
         if (!prev) {
-            prev = {
+            prev = program.createNode({
                 type: AST.CodeNodeTypes.declaration,
                 _parent: null, // TODO: How are we going to make sure parent isn't null when first creating a node?
                 mutable: null,
                 identifier: null,
                 valueExpression: null,
                 typeExpression: null
-            };
+            })
         }
 
         prev.mutable = (flat(components[0]) || '').trim() === 'var';
@@ -538,13 +538,13 @@ export const theModule: NodeTextDescription<AST.ModuleNode> = {
     updateValueFromComponents: (components, prev) => {
         let node = prev;
         if (!node) {
-            node = {
+            node = program.createNode({
                 type: AST.CodeNodeTypes.module,
                 _parent: null,
                 identifier: null,
                 version: '0.0.1', // TODO: Get the latest version that we're on right now
                 children: null
-            };
+            })
         }
 
         node.children = (flat(components[6]) as Array<any>).filter(child => typeof(child) !== 'string');
@@ -561,7 +561,7 @@ export const theModule: NodeTextDescription<AST.ModuleNode> = {
         node.children.map(child => {
             return [child, ';\n']
         }) as any,
-        ' ',
+        '',
         '}'        
     ]
 };

@@ -32,7 +32,14 @@ export interface CodeNode {
     _runtime?: CodeNodeRuntime
 
     // Display options for different language frontends, line breaks in javascript, all that stuff
-    display?: {[frontend: string] : any}
+    display?: {
+        frontends?: {[frontend: string] : any},
+
+        /**
+         * Any whitespace before this node
+         */
+        whitespace?: string
+    }
     
     type: CodeNodeType
     _parent: CodeNode,    

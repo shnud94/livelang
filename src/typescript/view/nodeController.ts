@@ -8,7 +8,7 @@ import {EventSource} from '../util/events';
 import * as Frontend from '../frontend/index';
 import {NodeTextDescription, TextComponent, TextSpec} from '../frontend/index';
 import * as js from '../frontend/javascriptStyle';
-import {RenderContext, NodeEvents, NodeTextController, ComponentDescription} from './index';
+import {RenderResult, RenderContext, NodeEvents, NodeTextController, ComponentDescription} from './index';
 import * as parserCustom from '../parser/custom';
 import * as nearley from '../parser/nearley';
 import {DOMData} from './programView';
@@ -23,11 +23,10 @@ const createBaseComponentControllerEvents = () : NodeEvents => {
     }
 }
 
-
 /**
  * Resuable general controller for all nodes
  */
-export const basicController = (node: AST.CodeNode) : NodeTextController => {
+export const basicController = (node: AST.CodeNode, parent?: NodeTextController) : NodeTextController => {
     
     const nodeDescription = js.frontendDescription.descriptorForNode(node);
     
@@ -37,100 +36,62 @@ export const basicController = (node: AST.CodeNode) : NodeTextController => {
     const failureResponse = {errors: [], success: false, completions: []};
 
     let thisController: NodeTextController = {
+        parentController: parent,
         firstNode: null,
         node: node,
         events: createBaseComponentControllerEvents(),
-        handleComponentChange: (newValue) => {
+        handleComponentChange: (newValue, source) => {
             if (nodeDescription.denyReparse) return failureResponse;
         
-            _.keys(node).forEach(key => {
-                if (!key.startsWith('_')) delete node[key];
+            const whitespace = /\s*/.exec(source)[0];
+            _.keys(newValue).forEach(key => {
+                if (key.startsWith('_')) delete newValue[key];
             });
             _.extend(node, newValue);
+            node.display = node.display || {};
+            node.display.whitespace = whitespace;
 
+            console.log('whitespace: ' + whitespace);
+            console.log('length: ' + whitespace.length);
             return {
                 errors: [],
                 success: true,
                 completions: []
             }
         },
-        handleChildComponentChange: (indexes, newComponent) => {
-            if (nodeDescription.denyReparse) return failureResponse;
-
-            const currentComponents = nodeDescription.componentsFromValue(node);
-            currentComponents[indexes[0]] = newComponent;
-            const result = nodeDescription.updateValueFromComponents(currentComponents, node);
-            if (result !== node) {
-                console.error('You are expected to only update an existing node, not return a new one');
-            }
-            
-            return {
-                errors: [],
-                success: true,
-                completions: []
-            }
-        },
-        render(context: RenderContext) {
-
-            thisController.firstNode = null;
-            const insert = (toInsert: HTMLElement) => {
-                if (!context.head) {
-                    $(toInsert).appendTo(context.parent);
-                }
-                else {
-                    $(toInsert).insertAfter(context.head);
-                }
-                context.head = toInsert[0];
-
-                if (!thisController.firstNode) {
-                    thisController.firstNode = toInsert;
-                }
+        render() : RenderResult {
+            let components: TextComponent[] = [];
+            if (node.display && typeof(node.display.whitespace) === 'string') {
+                components.push(node.display.whitespace);
             }
 
-            const processDescription = (desc: TextComponent, index: number, array: TextComponent[], indexInArray: number) => {
-                
-                if (desc == null) {
-                    desc = '';
-                }
+            const processDescription = (desc: TextComponent) => {
+                if (!desc) return;
 
-                if (typeof(desc) === 'string') {
-                    const asString = desc as string;
-                    const domNode = $('<span>')
-                        .addClass('node')
-                        .attr('contentEditable', 'true')
-                        .data({
-                            representedNode: node,
-                            componentController: thisController,
-                            index: index,
-                            initial: asString
-                        } as DOMData)
-                        .text(asString);
-                    insert(domNode[0]);
-
-                    startComponentNodesByIndex[index] = domNode[0];
-                }
-                else if (Array.isArray(desc)) {
+                if (Array.isArray(desc)) {
                     const asArray = desc as TextComponent[];
-                    asArray.forEach((each, index) => processDescription(each, index, array, indexInArray));
+                    asArray.forEach(processDescription);
                 }
                 else {
-                    // Assume it's a node, grab its controller and render afterwards
-                    const asNode = desc as AST.CodeNode;
-                    const controllerForChildNode = basicController(asNode);
-                    controllerForChildNode.parentController = thisController;
-                    controllerForChildNode.render(context);
-                    controllerForChildNode.indexInParent = index;
-                    controllerForChildNode.indexInArray = indexInArray;
+                    components.push(desc);
                 }
             };
             
             nodeDescription.componentsFromValue(node).forEach((component, index, array) => {
-
                 const asArray = utils.forceArray(component);
                 asArray.forEach((component, indexInArray) => {
-                    processDescription(component, index, array, indexInArray);
-                })                
+                    processDescription(component);
+                });                
             });
+
+            return {
+                renderables: components.map(component => {
+                    return {
+                        component: component,
+                        options: {}
+                    }
+                })
+            }
         },
         description: nodeDescription
     }

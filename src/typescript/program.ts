@@ -2,39 +2,46 @@ import * as AST from './ast/index';
 import {Types} from './ast/index';
 import * as _ from 'underscore';
 
+let lastId = Number.MIN_SAFE_INTEGER;
+export function nextId() : string {
+    return (++lastId).toString();
+}
+
+export function createNode<T extends AST.CodeNode>(node: T) : T { 
+    node._id = nextId();
+    return node;
+}
+
 let openPrograms: {[key: string] : Program} = {};
 export class Program {
 
     data: AST.ModuleNode;
     constructor() {
-
-
-        this.data = {
-            _id: this.getNextId(),
+        this.data = createNode({
             children: [
 
-                {
+                createNode({
                     type: AST.CodeNodeTypes.declaration,
                     mutable: true,
-                    identifier: AST.createIdentifier('myVar1'),
+                    identifier: createNode(AST.createIdentifier('myVar1')),
                     valueExpression: null,
                     typeExpression: null,
                     _parent: null
-                } as AST.DeclarationNode,
+                }) as AST.DeclarationNode,
+
+                createNode({
+                    type: AST.CodeNodeTypes.declaration,
+                    mutable: true,
+                    identifier: createNode(AST.createIdentifier('myVar2')),
+                    valueExpression: null,
+                    typeExpression: null,
+                    _parent: null
+                }) as AST.DeclarationNode,
 
                 {
                     type: AST.CodeNodeTypes.declaration,
                     mutable: true,
-                    identifier: AST.createIdentifier('myVar2'),
-                    valueExpression: null,
-                    typeExpression: null,
-                    _parent: null
-                } as AST.DeclarationNode,
-
-                {
-                    type: AST.CodeNodeTypes.declaration,
-                    mutable: true,
-                    identifier: AST.createIdentifier('myVar3'),
+                    identifier: createNode(AST.createIdentifier('myVar3')),
                     valueExpression: null,
                     typeExpression: null,
                     _parent: null
@@ -44,13 +51,8 @@ export class Program {
             type: AST.CodeNodeTypes.module,
             _parent: null ,
             version: '0.0.1'
-        };
+        });
         openPrograms[this.data._id] = this;
-    }
-
-    private nextId: number = 0;
-    getNextId() {
-        return (++this.nextId).toString();
     }
 
     static programFromNode(node: AST.CodeNode) : Program {
@@ -78,7 +80,7 @@ export function programFromJSON(json: string) : Program {
             if (typeof(val) === 'object' && val.type) {
                 // Assume we've revived a code node
                 // Add id and parent
-                val._id = program.getNextId();
+                val._id = nextId();
                 reviveChildren(val);
                 // Order is important here, can't add parent to children before
                 // reviving them, because then we have a circular reference
