@@ -1,4 +1,28 @@
 import * as AST from '../ast/index';
+import * as Types from '../types/index';
+
+function runModule(mod: AST.ModuleNode) {
+
+    interface RunTime {
+        value: any,
+        type: Types.Type
+    }
+
+    interface Stack {
+        declared: {[key: string] : RunTime}
+    }
+
+    const stacks: Stack[] = [{
+        declared: {}
+    }];
+    let currentStack = stacks.last();
+
+    mod.children.forEach(child => {
+
+
+        
+    });
+}
 
 // export const createContext = () => {
 

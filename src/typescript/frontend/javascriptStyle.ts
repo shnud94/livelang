@@ -36,13 +36,14 @@ const assignParent = <T extends AST.CodeNode>(node: T, parent) : T => {
 }
 
 export const frontendDescription = {
-    descriptorForNode<T extends AST.CodeNode>(node: T) : NodeTextDescription<T> {
+    descriptorForNode<T extends AST.Nodes>(node: T) : NodeTextDescription<T> {
         
-        if (node.type === AST.CodeNodeTypes.callExpression) {
+        if (node.type === 'expressioncallExpression') {
             // Transform call expressions to operators back into binary expressions
 
             const asCallExpression = node as any as AST.CallExpressionNode;
-            if (asCallExpression.target.type === AST.CodeNodeTypes.identifier) {
+            if (asCallExpression.target.type === 'expressionidentifier') {
+                
                 const identifier = (asCallExpression.target as AST.Identifier).value;
 
                 if (binaryOpSet.has(identifier)) {
@@ -50,8 +51,20 @@ export const frontendDescription = {
                 }
             }
         }
+
+        if (node.type === 'module') return theModule as any;
+        if (node.type === 'expressioncallExpression') return callExpression as any;
+        if (node.type === 'expressionmemberAccess') return memberAccessExpression as any;
+        if (node.type === 'assignment') return assignment as any;
+        if (node.type === 'expressionmapLiteral') return mapLiteral as any;
+        if (node.type === 'expressionidentifier') return identifier as any;
+        if (node.type === 'declaration') return declaration as any;
+        if (node.type === 'expressionnumericLiteral') return numericLiteral as any;
+        if (node.type === 'expressionstringLiteral') return stringLiteral as any;
+        if (node.type === 'expressionarrayLiteral') return arrayLiteral as any;
+        if (node.type === 'typeDeclaration') return typeDeclaration as any;
         
-        return descriptors[node.type] as NodeTextDescription<T>;
+        return null as any;
     }   
 };
 
@@ -74,11 +87,11 @@ const __ = {'*': {charset: ' \xA0\\t\\n\\v\\f'}};
 const ___ = {'+': {charset: ' \xA0\\t\\n\\v\\f'}};
 
 export const identifier: NodeTextDescription<AST.Identifier> = {
-    id: AST.CodeNodeTypes.identifier,
+    id: 'identifier',
     updateValueFromComponents: (components, prev) => {
         if (!prev) {
             prev = {
-                type: AST.CodeNodeTypes.identifier,
+                type: 'expressionidentifier',
                 value: null,
                 _parent: prev ? prev._parent : null
             }
@@ -101,11 +114,11 @@ export const identifier: NodeTextDescription<AST.Identifier> = {
 }
 
 export const numericLiteral: NodeTextDescription<AST.NumericLiteralNode> = {
-    id: AST.CodeNodeTypes.numericLiteral,
+    id: 'numericLiteral',
     updateValueFromComponents: (components, prev) => {
         if (!prev) {
             prev = program.createNode({
-                type: AST.CodeNodeTypes.numericLiteral,
+                type: 'expressionnumericLiteral',
                 value: 0,
                 _parent: null
             })
@@ -131,11 +144,11 @@ export const numericLiteral: NodeTextDescription<AST.NumericLiteralNode> = {
 }
 
 export const stringLiteral: NodeTextDescription<AST.StringLiteralNode> = {
-    id: AST.CodeNodeTypes.stringLiteral,
+    id: 'stringliteral',
     updateValueFromComponents: (components, prev) => {
         const value = flat(components);
         return program.createNode({
-            type: AST.CodeNodeTypes.stringLiteral,
+            type: 'expressionstringLiteral',
             value: value.substr(1, value.length - 2),
             _parent: prev ? prev._parent : null
         })
@@ -155,11 +168,11 @@ export const stringLiteral: NodeTextDescription<AST.StringLiteralNode> = {
 const objectField = () => ({all: [expression, ':', expression]});
 
 export const mapLiteral: NodeTextDescription<AST.MapLiteralNode> = {
-    id: AST.CodeNodeTypes.mapLiteral,
+    id: 'mapLiteral',
     updateValueFromComponents: (components, prev) => {
         if (!prev) {
             prev = program.createNode({
-                type: AST.CodeNodeTypes.mapLiteral,
+                type: 'expressionMapLiteral',
                 value: null,
                 _parent: prev ? prev._parent : null
             })
@@ -193,7 +206,7 @@ export const prefixExpression: NodeTextDescription<AST.CallExpressionNode> = {
                 _parent: null,
                 target: null,
                 input: null,
-                type: AST.CodeNodeTypes.callExpression
+                type: 'expressioncallExpression'
             })
         }
 
@@ -220,14 +233,14 @@ export const prefixExpression: NodeTextDescription<AST.CallExpressionNode> = {
 }
 
 export const arrayLiteral: NodeTextDescription<AST.ArrayLiteralNode> = {
-    id: AST.CodeNodeTypes.arrayLiteral,
+    id: 'arrayLiteral',
     updateValueFromComponents: (components, prev) => {
         
         if (!prev) {
             prev = program.createNode({
                 _parent: null,
                 value: null,
-                type: AST.CodeNodeTypes.arrayLiteral
+                type: 'expressionarrayLiteral'
             });
         }
 
@@ -259,7 +272,7 @@ export const arrayLiteral: NodeTextDescription<AST.ArrayLiteralNode> = {
 }
 
 export const memberAccessExpression: NodeTextDescription<AST.MemberAccessExpression> = {
-    id: AST.CodeNodeTypes.memberAccess,
+    id: 'memberAccess',
     updateValueFromComponents: (components, prev) => {
         
         if (!prev) {
@@ -267,7 +280,7 @@ export const memberAccessExpression: NodeTextDescription<AST.MemberAccessExpress
                 _parent: null,
                 subject: null,
                 member: null,
-                type: AST.CodeNodeTypes.memberAccess
+                type: 'expressionmemberAccess'
             })
         }
 
@@ -289,7 +302,7 @@ export const memberAccessExpression: NodeTextDescription<AST.MemberAccessExpress
 }
 
 export const callExpression: NodeTextDescription<AST.CallExpressionNode> = {
-    id: AST.CodeNodeTypes.callExpression,
+    id: 'callExpression',
     updateValueFromComponents: (components, prev) => {
         
         if (!prev) {
@@ -297,7 +310,7 @@ export const callExpression: NodeTextDescription<AST.CallExpressionNode> = {
                 _parent: null,
                 input: null,
                 target: null,
-                type: AST.CodeNodeTypes.callExpression
+                type: 'expressioncallExpression'
             })
         }
 
@@ -328,7 +341,7 @@ export const binaryExpression: NodeTextDescription<AST.CallExpressionNode> = (()
 
             if (!prev) {
                 prev = program.createNode({
-                    type: AST.CodeNodeTypes.callExpression,
+                    type: 'expressioncallExpression',
                     _parent: null,
                     target: null,
                     input: null
@@ -385,18 +398,18 @@ export const expression: TextDescription<AST.ExpressionType> = {
     ],
     componentsFromValue: value => [
         '(',
-        descriptors[value.type],
+        value,
         ')'
     ]
 }
 
 export const assignment: NodeTextDescription<AST.AssignmentNode> = {
-    id: AST.CodeNodeTypes.assignment,
+    id: 'assignment',
     updateValueFromComponents: (components, prev) => {
         
         if (!prev) {
             prev = program.createNode({
-                type: AST.CodeNodeTypes.assignment,
+                type: 'assignment',
                 _parent: null,
                 identifier: null,
                 valueExpression: null
@@ -425,12 +438,12 @@ export const assignment: NodeTextDescription<AST.AssignmentNode> = {
 };
 
 export const typeDeclaration: NodeTextDescription<AST.TypeDeclaration> = {
-    id: AST.CodeNodeTypes.typeDeclaration,
+    id: 'typeDeclaration',
     updateValueFromComponents: (components, prev) => {
         
         if (!prev) {
             prev = program.createNode({
-                type: AST.CodeNodeTypes.typeDeclaration,
+                type: 'typeDeclaration',
                 _parent: null, // TODO: How are we going to make sure parent isn't null when first creating a node?
                 identifier: null,
                 typeExpression: null
@@ -464,12 +477,12 @@ export const typeDeclaration: NodeTextDescription<AST.TypeDeclaration> = {
 };
 
 export const declaration: NodeTextDescription<AST.DeclarationNode> = {
-    id: AST.CodeNodeTypes.declaration,
+    id: 'declaration',
     updateValueFromComponents: (components, prev) => {
         
         if (!prev) {
             prev = program.createNode({
-                type: AST.CodeNodeTypes.declaration,
+                type: 'declaration',
                 _parent: null, // TODO: How are we going to make sure parent isn't null when first creating a node?
                 mutable: null,
                 identifier: null,
@@ -515,7 +528,7 @@ export const declaration: NodeTextDescription<AST.DeclarationNode> = {
 };
 
 export const theModule: NodeTextDescription<AST.ModuleNode> = {
-    id: AST.CodeNodeTypes.module,
+    id: 'module',
     getTextSpecs: () => [
         'module', // 0
         ___,
@@ -539,7 +552,7 @@ export const theModule: NodeTextDescription<AST.ModuleNode> = {
         let node = prev;
         if (!node) {
             node = program.createNode({
-                type: AST.CodeNodeTypes.module,
+                type: 'module',
                 _parent: null,
                 identifier: null,
                 version: '0.0.1', // TODO: Get the latest version that we're on right now
@@ -564,19 +577,4 @@ export const theModule: NodeTextDescription<AST.ModuleNode> = {
         '',
         '}'        
     ]
-};
-
-export const descriptors: any = {
-    [AST.CodeNodeTypes.module] : theModule,
-    [AST.CodeNodeTypes.callExpression] : callExpression,
-    [AST.CodeNodeTypes.memberAccess] : memberAccessExpression,
-    [AST.CodeNodeTypes.assignment] : assignment,
-    [AST.CodeNodeTypes.mapLiteral] : mapLiteral,
-    [AST.CodeNodeTypes.identifier] : identifier,
-    [AST.CodeNodeTypes.declaration] : declaration,
-    [AST.CodeNodeTypes.numericLiteral] : numericLiteral,
-    [AST.CodeNodeTypes.stringLiteral] : stringLiteral,
-    [AST.CodeNodeTypes.arrayLiteral] : arrayLiteral,
-    [AST.CodeNodeTypes.assignment] : assignment,
-    [AST.CodeNodeTypes.typeDeclaration] : typeDeclaration
 };

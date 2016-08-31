@@ -128,7 +128,7 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
             }
             else {
                 // Must be a node
-                parts = parts.concat(elementsFromController(basicController(renderable.component as AST.CodeNode, controller)));
+                parts = parts.concat(elementsFromController(basicController(renderable.component as AST.Nodes, controller)));
             }
         });
 
@@ -276,7 +276,24 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
             const focused = event.target as HTMLElement;
             const pos = util.getCaretPosition(focused);
             const fraction = util.getCaretFraction(focused);
-
+            //debugger;
+            // 8 backspace, 46 delete
+            if (fraction === 0 && code === 8) {
+                const prev = editableSibling(event.target, -1);
+                if (prev) {
+                    prev.innerText = prev.innerText.substr(-1);
+                    prev.focus();
+                    util.setCaretFraction(prev, 1);
+                }
+            }
+            else if (fraction === 1 && code === 46) {
+                const next = editableSibling(event.target, 1);
+                if (next) {
+                    next.innerText = next.innerText.substr(1);
+                    next.focus();
+                }                
+            }
+            
             if (code >= 37 && code <= 40) {
                 if (code === 37) {
                     handleArrow(event, 'left', focused, pos, fraction);

@@ -1,5 +1,5 @@
 import * as AST from './ast/index';
-import {Types} from './ast/index';
+import * as Types from './ast/index';
 import * as _ from 'underscore';
 
 let lastId = Number.MIN_SAFE_INTEGER;
@@ -7,8 +7,8 @@ export function nextId() : string {
     return (++lastId).toString();
 }
 
-export function createNode<T extends AST.CodeNode>(node: T) : T { 
-    node._id = nextId();
+export function createNode(node: any) : any { 
+    (node as any)._id = nextId();
     return node;
 }
 
@@ -21,7 +21,7 @@ export class Program {
             children: [
 
                 createNode({
-                    type: AST.CodeNodeTypes.declaration,
+                    type: 'declaration',
                     mutable: true,
                     identifier: createNode(AST.createIdentifier('myVar1')),
                     valueExpression: null,
@@ -30,7 +30,7 @@ export class Program {
                 }) as AST.DeclarationNode,
 
                 createNode({
-                    type: AST.CodeNodeTypes.declaration,
+                    type: 'declaration',
                     mutable: true,
                     identifier: createNode(AST.createIdentifier('myVar2')),
                     valueExpression: null,
@@ -39,7 +39,7 @@ export class Program {
                 }) as AST.DeclarationNode,
 
                 {
-                    type: AST.CodeNodeTypes.declaration,
+                    type: 'declaration',
                     mutable: true,
                     identifier: createNode(AST.createIdentifier('myVar3')),
                     valueExpression: null,
@@ -48,7 +48,7 @@ export class Program {
                 } as AST.DeclarationNode,
             ],
             identifier: AST.createIdentifier('main'),
-            type: AST.CodeNodeTypes.module,
+            type: 'module',
             _parent: null ,
             version: '0.0.1'
         });

@@ -16,7 +16,9 @@ var paths = {
     sass: ['src/sass/**/*.scss']
 }
 
-var tsProject = ts.createProject('tsconfig.json');
+var tsProject = ts.createProject('tsconfig.json', {
+    typescript: require('typescript')
+});
  
 gulp.task('typescript', function() {
     var tsResult = gulp.src(paths.typescript)

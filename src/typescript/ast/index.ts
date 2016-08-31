@@ -1,23 +1,6 @@
 import {EventSource} from '../util/events';
 
 export type CodeNodeType = string;
-export namespace CodeNodeTypes {
-    export const module: CodeNodeType = "module";
-
-    export const typeDeclaration: CodeNodeType = "typeDeclaration";
-    export const declaration: CodeNodeType = "declaration";
-    export const assignment: CodeNodeType = "assignment";
-
-    export const identifier: CodeNodeType = "expressionidentifier";
-    export const memberAccess: CodeNodeType = "expressionmemberAccess";
-    export const callExpression: CodeNodeType = "expressioncallExpression";
-    export const numericLiteral: CodeNodeType = "expressionnumericLiteral";
-    export const stringLiteral: CodeNodeType = "expressionstringLiteral";
-    export const arrayLiteral: CodeNodeType = "expressionarrayLiteral";
-    export const mapLiteral: CodeNodeType = "expressionmapLiteral";
-    export const callableLiteral: CodeNodeType = "expressioncallableLiteral";
-}
-export const Types = CodeNodeTypes;
 
 interface CodeNodeRuntime {
     events: {
@@ -26,6 +9,8 @@ interface CodeNodeRuntime {
         nodeError: EventSource<string>
     }
 }
+
+export type Nodes = AssignmentNode | DeclarationNode | ModuleNode | TypeDeclaration | Identifier | CallExpressionNode | MemberAccessExpression | ExpressionType;
 
 export interface CodeNode {
     _id?: string
@@ -41,16 +26,17 @@ export interface CodeNode {
         whitespace?: string
     }
     
-    type: CodeNodeType
     _parent: CodeNode,    
 }
 
 export interface AssignmentNode extends CodeNode {
+    type: 'assignment',
     identifier: Identifier,
     valueExpression?: ExpressionType,
 }
 
 export interface DeclarationNode extends CodeNode {
+    type: 'declaration',
     mutable: boolean
     identifier: Identifier,
     valueExpression?: ExpressionType,
@@ -62,6 +48,7 @@ export interface ImportNode extends CodeNode {
 }
 
 export interface TypeDeclaration extends CodeNode {
+    type: 'typeDeclaration',
 
     /**
      * Every type must have a unique identifier not equal to one already created, which includes those that are preexisting such as
@@ -94,15 +81,20 @@ export interface TypeDeclaration extends CodeNode {
     typeExpression: ExpressionType 
 }
 
-export type ExpressionType = Identifier | ValueNode<any> | CallExpressionNode | MemberAccessExpression;
-export type Identifier = ValueNode<string>;
+export type ExpressionType = Identifier | CallExpressionNode | MemberAccessExpression | ArrayLiteralNode | NumericLiteralNode | MapLiteralNode | StringLiteralNode | CallableLiteral;
+export interface Identifier extends CodeNode {
+    type: 'expressionidentifier'
+    value: string
+}
 
 export interface MemberAccessExpression extends CodeNode {
+    type: 'expressionmemberAccess',
     member: Identifier
     subject: ExpressionType
 }
 
 export interface CallableLiteral extends CodeNode {
+    type: 'expressioncallableLiteral'
     input: ExpressionType,
     body: ModuleChild
     output: ExpressionType
@@ -113,23 +105,32 @@ export interface PrefixExpressionNode extends CodeNode {
     subExpression: ExpressionType 
 }
 
-// This is what we use for any literal type, because we store the value 
-// in its JS form and can gather the data and type from that
-export interface ValueNode<T> extends CodeNode {
-    value: T
+export interface ArrayLiteralNode extends CodeNode {
+    type: 'expressionarrayLiteral'
+    value: Array<any>
 }
-export type ArrayLiteralNode = ValueNode<Array<ExpressionType>>;
-export type NumericLiteralNode = ValueNode<number>;
-export type StringLiteralNode = ValueNode<string>;
-export type MapLiteralNode = ValueNode<{[key: string] : any}>;
+export interface NumericLiteralNode extends CodeNode {
+    type: 'expressionnumericLiteral'
+    value: number
+}
+export interface StringLiteralNode extends CodeNode {
+    type: 'expressionstringLiteral'
+    value: string
+}
+export interface MapLiteralNode extends CodeNode {
+    type: 'expressionmapLiteral'
+    value: {[key: string] : any}
+}
 
 export interface CallExpressionNode extends CodeNode {
+    type: 'expressioncallExpression'
     target: ExpressionType
     input?: ExpressionType
 }
 
 export type ModuleChild = DeclarationNode | ExpressionType | AssignmentNode | TypeDeclaration | ModuleNode;
 export interface ModuleNode extends CodeNode {
+    type: 'module',
 
     /**
      * Everything that comes under this module node inherits the version from its module. We use this to handle
@@ -151,9 +152,9 @@ export function createProgram() : ModuleNode {
     } as ModuleNode;
 }
 
-export function createArrayLiteral(values: ExpressionType[]) : ArrayLiteralNode {
+export function createArrayLiteral(values: ExpressionType[], parent?: CodeNode) : ArrayLiteralNode {
     return {
-        type: CodeNodeTypes.arrayLiteral,
+        type: 'expressionarrayLiteral',
         value: values,
         _parent: null    
     }
@@ -161,8 +162,8 @@ export function createArrayLiteral(values: ExpressionType[]) : ArrayLiteralNode 
 
 export function createIdentifier(identifier: string, parent?: CodeNode) : Identifier {
     return {
-        type: CodeNodeTypes.identifier,
+        type: 'expressionidentifier',
         value: identifier,
-        _parent: parent    
+        _parent: parent
     }
 }

@@ -26,7 +26,7 @@ const createBaseComponentControllerEvents = () : NodeEvents => {
 /**
  * Resuable general controller for all nodes
  */
-export const basicController = (node: AST.CodeNode, parent?: NodeTextController) : NodeTextController => {
+export const basicController = (node: AST.Nodes, parent?: NodeTextController) : NodeTextController => {
     
     const nodeDescription = js.frontendDescription.descriptorForNode(node);
     

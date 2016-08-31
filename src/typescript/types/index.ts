@@ -1,7 +1,6 @@
 import * as AST from '../ast/index';
 import * as _ from 'underscore';
 import * as util from '../util';
-const types = AST.CodeNodeTypes;
 
 interface BuiltInType<RawType> extends Type {
     rawValue: RawType
@@ -219,18 +218,16 @@ export function typeCheckModule(module: AST.ModuleNode, context?: TypeCheckConte
     }    
     seedTypeCheckContext(context);
 
-    module.children.forEach(child => {
-        const asCodeNode = child as any as AST.CodeNode;
-        if (typeof(child) !== 'object') return;
+    module.children.forEach(child => {                
 
-        if (asCodeNode.type.startsWith('expression')) {
-            typeCheckExpression(child as any, context, rootScope);
+        if (child.type.startsWith('expression')) {
+            typeCheckExpression(child as AST.ExpressionType, context, rootScope);
         }
-        else if (asCodeNode.type === AST.CodeNodeTypes.declaration) {
-            typeCheckDeclaration(child as AST.DeclarationNode, context, rootScope);
+        else if (child.type === 'declaration') {
+            typeCheckDeclaration(child, context, rootScope);
         }
-        else if (asCodeNode.type === AST.CodeNodeTypes.assignment) {
-            typeCheckAssignment(child as AST.AssignmentNode, context, rootScope);
+        else if (child.type === 'assignment') {
+            typeCheckAssignment(child, context, rootScope);
         }
     });
 
@@ -368,25 +365,21 @@ export function typeCheckAssignment(assignment: AST.AssignmentNode, context: Typ
 
 export function typeCheckExpression(expression: AST.ExpressionType, context: TypeCheckContext, scope: Scope) : Type {
 
-    if (expression.type === types.identifier) {
-        const asIdentifier = expression as AST.Identifier;
-        if (asIdentifier.value === 'false' || asIdentifier.value === 'true') return BuiltInTypes.boolean;
-        const resolved = resolveDeclarationByIdentifier(asIdentifier.value, scope);
+    if (expression.type === 'expressionidentifier') {
+        
+        if (expression.value === 'false' || expression.value === 'true') return BuiltInTypes.boolean;
+        const resolved = resolveDeclarationByIdentifier(expression.value, scope);
         if (resolved && resolved.type) {
             return resolved.type;
         }   
         else {
-            debugger;
-            context.errors.push(createError(`Couldn't resolve type of $0`, [asIdentifier]));
+            context.errors.push(createError(`Couldn't resolve type of $0`, [expression]));
             return getAnyType();
         }     
     }
-    if (expression.type === types.arrayLiteral) {
+    if (expression.type === 'expressionarrayLiteral') {
 
-        // Array literal
-        const asValueNode = expression as AST.ArrayLiteralNode;
-        const array = asValueNode.value;
-
+        const array = expression.value;
         // return array of most common parent type if possible
         const childTypes = array.map(expression => typeCheckExpression(expression, context, scope));
 
@@ -403,11 +396,10 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
         if (allAssignable) return createArrayType(childTypes[0]);
         return createArrayType(childTypes);
     }
-    else if (expression.type === types.numericLiteral) {
+    else if (expression.type === 'expressionnumericLiteral') {
         
         // Numeric literal
-        const asValueNode = expression as AST.NumericLiteralNode;
-        const asNumber = asValueNode.value;
+        const asNumber = expression.value;
         if (asNumber % 1 === 0) {
             return BuiltInTypes.int32;
         }
@@ -415,22 +407,20 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
             return BuiltInTypes.float32;
         }
     }
-    else if (expression.type === types.mapLiteral) {
+    else if (expression.type === 'expressionmapLiteral') {
         
         // Map literal
-        const asValueNode = expression as AST.MapLiteralNode;
-        return createMapType(util.mapObj(asValueNode.value, (key, val) => {
+        return createMapType(util.mapObj(expression.value, (key, val) => {
             return [key, typeCheckExpression(val, context, scope)]
         }))
     }
-    else if (expression.type === types.stringLiteral) {
+    else if (expression.type === 'expressionstringLiteral') {
         return BuiltInTypes.string;
     }
-    else if (expression.type === types.callExpression) {
+    else if (expression.type === 'expressioncallExpression') {
 
-        const asCallExpression = expression as AST.CallExpressionNode;
-        const inputType = typeCheckExpression(asCallExpression.input, context, scope);
-        let functionType = typeCheckExpression(asCallExpression.target, context, scope);
+        const inputType = typeCheckExpression(expression.input, context, scope);
+        let functionType = typeCheckExpression(expression.target, context, scope);
         
         const checkFunction = (inputType: Type, func: FunctionType) => {
             return typesMatch(func.input, inputType);
@@ -444,7 +434,7 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
             if (foundMatch) {
                 return foundMatch.output;
             }
-            context.errors.push(createError(`Input for method $0 does not match declared`, [asCallExpression.target]));
+            context.errors.push(createError(`Input for method $0 does not match declared`, [expression.target]));
             return getAnyType();
         }
         if (functionType.type !== t.function) {
@@ -456,7 +446,7 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
         const inputMatches = typesMatch(asMethod.input, inputType);
 
         if (!inputMatches) {
-            context.errors.push(createError(`Input for method $0 does not match declared`, [asCallExpression.target]));
+            context.errors.push(createError(`Input for method $0 does not match declared`, [expression.target]));
         }
 
         return asMethod.output;
@@ -465,30 +455,21 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
 
 export function getTypeOfTypeExpression(typeExpression: AST.ExpressionType) : Type | string {
 
-    const asCodeNode = typeExpression as any as AST.CodeNode;
 
-    if (typeof(typeExpression) === 'string') {
-        return typeExpression as any as string;
-    }
     // After here we assume typeExpression is an object
-    else if (asCodeNode.type === AST.CodeNodeTypes.arrayLiteral) {
+    if (typeExpression.type === 'expressionarrayLiteral') {
 
-        const asArrayLiteral = asCodeNode as AST.ArrayLiteralNode;
-        const array = asArrayLiteral.value;
-        return createArrayType(array.map(typeExpression => getTypeOfTypeExpression(typeExpression) as Type));
+        return createArrayType(typeExpression.value.map(typeExpression => getTypeOfTypeExpression(typeExpression) as Type));
     }
-    else if (asCodeNode.type === AST.CodeNodeTypes.mapLiteral) {
+    else if (typeExpression.type === 'expressionmapLiteral') {
 
-        const asMapLiteral = asCodeNode as AST.MapLiteralNode;
-        const object = asMapLiteral.value as {[key: string] : Type};
-        return createMapType(object);
+        return createMapType(typeExpression.value);
     }
-    else if (asCodeNode.type === AST.CodeNodeTypes.callableLiteral) {
+    else if (typeExpression.type === 'expressioncallableLiteral') {
 
-        const asCallable = asCodeNode as AST.CallableLiteral;
         return createCallableType(
-            getTypeOfTypeExpression(asCallable.input) as Type, 
-            getTypeOfTypeExpression(asCallable.output) as Type
+            getTypeOfTypeExpression(typeExpression.input) as Type, 
+            getTypeOfTypeExpression(typeExpression.output) as Type
         )
     }
 }
@@ -517,16 +498,15 @@ export function getTypes(module: AST.ModuleNode) : {[identifier: string] : Type}
     };    
 
     module.children.forEach(child => {
-        if (child.type === types.typeDeclaration) {
+        if (child.type === 'typeDeclaration') {
 
-            const typeDec = child as AST.TypeDeclaration;
-            const typeExpression = typeDec.typeExpression;
+            const typeExpression = child.typeExpression;
 
-            if (context.typesByIdentifier[typeDec.identifier.value]) {
-                console.error(`Declared same type twice with identifier ${typeDec.identifier}`);
+            if (context.typesByIdentifier[child.identifier.value]) {
+                console.error(`Declared same type twice with identifier ${child.identifier}`);
                 console.error(`Not doing anything about this now m8 but be warned l8r on you will experinese problmz`);
             }
-            context.typesByIdentifier[typeDec.identifier.value] = getTypeOfTypeExpression(typeExpression);
+            context.typesByIdentifier[child.identifier.value] = getTypeOfTypeExpression(typeExpression);
         }
     });
 
