@@ -28,7 +28,7 @@ export const parse = (grammar: nearley.Grammar, input: string) : Result<any> => 
     try {
         parser.feed(input);
     } catch (e) {
-        return {error: e.message};
+        return {error: e.stack};
     }
 
     return {result: parser.results.last()};

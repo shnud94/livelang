@@ -1,47 +1,61 @@
 import * as AST from '../ast/index';
 import * as _ from 'underscore';
 import * as util from '../util';
+const log = require('debug')('livelang:typechecker');
 
-interface BuiltInType<RawType> extends Type {
-    rawValue: RawType
-    defaultValue: RawType
+
+export type TypeCheckError = TypeMismatchError | TypeErrorVague; 
+
+export interface TypeErrorVague {
+    kind: 'typeError',
+    value: string,
+    nodes: any[]
 }
 
-type BuiltInTypeUpdater<RawType> = (value: RawType) => RawType
-type TypeIdentifier = string; 
+export interface TypeMismatchError {
+    kind: 'typeMismatchError',
+    lhs: {
+        type: Type,
+        value: any
+    }
+    rhs: {
+        type: Type,
+        value: any
+    }
+}
 
-export interface Type {
+export interface TypeBase {
     identifier?: string
-    type: string
 }
 
-const typeTypes = {
-    any: 'any',
-    value: 'value',
-    map: 'map',
-    array: 'array',
-    generic: 'generic',
-    function: 'function',
-    or: 'or',
-    and: 'and'
-}
-const t = typeTypes;
+export type Type = TypeBase & (AndType | OrType | FunctionType<any, any> | MapType | ArrayType | ValueType | AnyType);
 
-export interface AndType extends Type {
+export interface AnyType extends TypeBase {
+    type: 'any'
+}
+
+export interface AndType extends TypeBase {
+    type: 'and',
     choices: Type[]
 }
 
-export interface OrType extends Type {
+export interface OrType extends TypeBase {
+    type: 'or',
     choices: Type[]
 }
 
-export interface ValueType extends Type {}
+export interface ValueType extends TypeBase {
+    type: 'value'
+}
 
-export interface MapType extends Type {
+
+export interface MapType extends TypeBase {
+    type: 'map'
     map: {[key: string] : Type}
 }
 
-export interface ArrayType extends Type {
+export interface ArrayType extends TypeBase {
+    type: 'array'
     /**
      * One type says that the array is all of the same type,
      * but an array of types specifies a fixed length array of
@@ -50,22 +64,23 @@ export interface ArrayType extends Type {
     elementType: Type | Type[]
 }
 
-export interface FunctionType extends Type {
-    output: Type,
-    input: Type
+export interface FunctionType<I, O> extends TypeBase {
+    type: 'function'
+    input: I
+    output: O
 }
 
 export function getAnyType() : Type {
     return {
-        type: t.any,
-        identifier: 'any'
+        identifier: 'any',
+        type: 'any'
     }
 }
 
 export function createMapType(map: {[key: string] : Type}, identifier?: string) : MapType {
     return {
         identifier: identifier,
-        type: t.map,
+        type: 'map',
         map: map
     };
 }
@@ -73,7 +88,7 @@ export function createMapType(map: {[key: string] : Type}, identifier?: string) 
 export function createArrayType(type: Type | Type[], identifier?: string) : ArrayType {
     return {
         identifier: identifier,
-        type: t.array,
+        type: 'array',
         elementType: type
     };
 }
@@ -81,14 +96,14 @@ export function createArrayType(type: Type | Type[], identifier?: string) : Arra
 export function createValueType(identifier: string) : ValueType {
     return {
         identifier: identifier,
-        type: t.value
+        type: 'value'
     };
 }
 
 export function createAndType(choices: Type[], identifier?: string) : AndType {
     return {
         identifier: identifier,
-        type: t.and,
+        type: 'and',
         choices: choices
     };
 }
@@ -96,15 +111,15 @@ export function createAndType(choices: Type[], identifier?: string) : AndType {
 export function createOrType(choices: Type[], identifier?: string) : OrType {
     return {
         identifier: identifier,
-        type: t.or,
+        type: 'or',
         choices: choices
     };
 }
 
-export function createCallableType(input: Type, output: Type, identifier?: string) : FunctionType {
+export function createCallableType<I extends Type, O extends Type>(input: I, output: O, identifier?: string) : FunctionType<I, O> {
     return {
         identifier: identifier,
-        type: t.function,
+        type: 'function',
         input: input,
         output: output
     };
@@ -129,8 +144,11 @@ export const BuiltInTypes = {
 
     float16: createValueType('float16'),
     float32: createValueType('float32'),
+    float64: createValueType('float64'),
 
     boolean: createValueType('boolean'),
+
+    null: createValueType('null')
 }
 const b = BuiltInTypes;
 
@@ -190,6 +208,16 @@ function convertOperatorsToDeclarations(stringsNTypes: {[key: string] : Type}) :
     });
 }
 
+export function isIntegerType(type: Type) {
+    return type.type === 'value' && (
+        type === b.int16 ||
+        type === b.int32 || 
+        type === b.int8 ||
+        type === b.uint16 || 
+        type === b.uint32 || 
+        type === b.uint8
+    );
+}
 
 /**
  * Inserts built in library functions into the type check context
@@ -237,19 +265,19 @@ export function typeCheckModule(module: AST.ModuleNode, context?: TypeCheckConte
 // Think this is just for checking assignment
 export function typesMatch(dest: Type, source: Type) : boolean {
     // Any type
-    if (dest.type === t.any || source.type === t.any) return true;
+    if (dest.type === 'any' || source.type === 'any') return true;
 
     if (dest.type !== source.type) {
         // Type of the types have to match
         return false;
     }
 
-    if (dest.type === t.value && source.type === t.value && dest.identifier === source.identifier) {
+    if (dest.type === 'value' && source.type === 'value' && dest.identifier === source.identifier) {
         // Value type
         return true;
     }
     
-    if (dest.type === t.map && source.type === t.map) {
+    if (dest.type === 'map' && source.type === 'map') {
         // Map type
         const [mapDest, mapSource] = [dest as MapType, source as MapType]; 
 
@@ -258,7 +286,7 @@ export function typesMatch(dest: Type, source: Type) : boolean {
         });
     }
 
-    if (dest.type === t.array && source.type == t.array) {
+    if (dest.type === 'array' && source.type == 'array') {
         // Array type
         const [arrayDest, arraySource] = [dest as ArrayType, source as ArrayType]; 
 
@@ -271,13 +299,13 @@ export function typesMatch(dest: Type, source: Type) : boolean {
         }
     }
 
-    if (dest.type === t.or && source.type === t.or) {
+    if (dest.type === 'or' && source.type === 'or') {
         // Or type
         const [orDest, orSource] = [dest as OrType, source as OrType]; 
         return orDest.choices.some((type, index) => typesMatch(type, orSource.choices[index]));
     }
 
-    if (dest.type === t.and && source.type === t.and) {
+    if (dest.type === 'and' && source.type === 'and') {
         // And type
         const [andDest, andSource] = [dest as AndType, source as AndType]; 
         return andDest.choices.every((type, index) => typesMatch(type, andSource.choices[index]));
@@ -286,23 +314,19 @@ export function typesMatch(dest: Type, source: Type) : boolean {
     return false;
 }
 
-export function createError(error: string, nodes: AST.CodeNode[] = []) : TypeCheckContextError {
+export function createError(error: string, nodes: AST.CodeNode[] = []) : TypeErrorVague {
     return {
-        errorString: error,
+        kind: 'typeError',
+        value: error,
         nodes: nodes
     }
-}
-
-interface TypeCheckContextError {
-    errorString: string,
-    nodes: AST.CodeNode[]
 }
 
 export interface TypeCheckContext extends TypeCreationContext {
     rootScope: Scope
     resolveType: (identifier: string | Type) => Type
-    errors: TypeCheckContextError[]
-    warnings: string[]
+    errors: TypeCheckError[]
+    warnings: TypeCheckError[]
 }
 
 interface TypeCreationContext {
@@ -323,10 +347,25 @@ export function typeCheckDeclaration(declaration: AST.DeclarationNode, context: 
         let expressionType = typeCheckExpression(declaration.valueExpression, context, scope);
         const match = typesMatch(declarationType || getAnyType(), expressionType);
         if (!match) {
-            context.errors.push(createError(`Types weren't assignable bruh`));
+            debugger;
+            context.errors.push({
+                kind: 'typeMismatchError',
+                lhs: {
+                    type: existing.type,
+                    value: existing
+                },
+                rhs: {
+                    type: expressionType,
+                    value: declaration.valueExpression
+                }  
+            });
         }
         // Give declaration type precedence as we might want to cast to something specific
         declarationType = match ? (declarationType || expressionType) : getAnyType(); 
+    }
+
+    if (!declaration.typeExpression && !declaration.valueExpression) {
+        context.warnings.push(createError('Unable to infer any type for identifier', [declaration]));
     }
 
     declarationType = declarationType || getAnyType();
@@ -422,27 +461,27 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
         const inputType = typeCheckExpression(expression.input, context, scope);
         let functionType = typeCheckExpression(expression.target, context, scope);
         
-        const checkFunction = (inputType: Type, func: FunctionType) => {
+        const checkFunction = (inputType: Type, func: FunctionType<any, any>) => {
             return typesMatch(func.input, inputType);
         }
 
-        if (functionType.type === t.or) {
+        if (functionType.type === 'or') {
             const asOr = functionType as OrType;
             const foundMatch = asOr.choices.find(functionType => 
-                functionType.type === t.function && checkFunction(inputType, functionType as FunctionType)
-            ) as FunctionType;
+                functionType.type === 'function' && checkFunction(inputType, functionType as FunctionType<any, any>)
+            ) as FunctionType<any, any>;
             if (foundMatch) {
                 return foundMatch.output;
             }
             context.errors.push(createError(`Input for method $0 does not match declared`, [expression.target]));
             return getAnyType();
         }
-        if (functionType.type !== t.function) {
+        if (functionType.type !== 'function') {
             context.errors.push(createError(`Expression $0 is not callable`, [expression]));
             return getAnyType();
         }
 
-        const asMethod = functionType as FunctionType;        
+        const asMethod = functionType as FunctionType<any, any>;        
         const inputMatches = typesMatch(asMethod.input, inputType);
 
         if (!inputMatches) {
@@ -451,10 +490,46 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
 
         return asMethod.output;
     }
+    else if (expression.type === 'expressionmemberAccess') {
+
+        const checkSubject = typeCheckExpression(expression.subject, context, scope);
+        const memberType = typeCheckExpression(expression.member, context, scope);
+
+        if (checkSubject.type === 'any') return getAnyType();
+
+        if (checkSubject.type === 'map' && memberType === BuiltInTypes.string) {
+            const asMapType = checkSubject as MapType;
+            if (expression.member.type === 'expressionidentifier') {
+                return asMapType[expression.member.value];
+            }
+            else {
+                log(`dynamically accessing member of map, we can't yet say for sure if this exists`); 
+                // compile time code execution required?
+                return getAnyType();
+            }
+        }
+
+        if (checkSubject.type === 'array' && isIntegerType(memberType)) {
+            const asArrayType = checkSubject as ArrayType;
+            if (expression.member.type === 'expressionnumericLiteral') {
+                // We can do our best to do bounds checking here
+
+                if (expression.member.value < 0 || (Array.isArray(asArrayType.elementType) && asArrayType.elementType.length <= expression.member.value)) {
+                    context.errors.push(createError('array out of bounds index', [expression]));
+                }
+
+                return Array.isArray(asArrayType.elementType) ? asArrayType.elementType[expression.member.value] : asArrayType.elementType;
+            }
+            else {
+                log(`dynamically accessing index of array, we can't yet say for sure if this exists`); 
+                // compile time code execution required?
+                return Array.isArray(asArrayType.elementType) ? getAnyType() : asArrayType.elementType;
+            }
+        }
+    }
 }
 
-export function getTypeOfTypeExpression(typeExpression: AST.ExpressionType) : Type | string {
-
+export function getTypeOfTypeExpression(typeExpression: AST.ExpressionType) : Type {
 
     // After here we assume typeExpression is an object
     if (typeExpression.type === 'expressionarrayLiteral') {
@@ -467,8 +542,9 @@ export function getTypeOfTypeExpression(typeExpression: AST.ExpressionType) : Ty
     }
     else if (typeExpression.type === 'expressioncallableLiteral') {
 
+        const argArrayType = createArrayType(typeExpression.input.map(arg => getTypeOfTypeExpression(arg.type)));
         return createCallableType(
-            getTypeOfTypeExpression(typeExpression.input) as Type, 
+            argArrayType,
             getTypeOfTypeExpression(typeExpression.output) as Type
         )
     }
@@ -522,7 +598,7 @@ export function getTypes(module: AST.ModuleNode) : {[identifier: string] : Type}
             const asString = typeOrIdentifier as string;
             context.typesByIdentifier[identifier] = resolveType(asString);
         }
-        else if (type.type === t.array) {
+        else if (type.type === 'array') {
             const asArrayType = type as ArrayType;
             
             if (Array.isArray(asArrayType)) {
@@ -532,16 +608,16 @@ export function getTypes(module: AST.ModuleNode) : {[identifier: string] : Type}
                 asArrayType.elementType = resolveType(asArrayType.elementType as Type);
             }
         }
-        else if (type.type === t.map) {
+        else if (type.type === 'map') {
 
             const asMap = type as MapType;
             _.keys(asMap).forEach(key => {
                 asMap[key] = resolveType(asMap[key]);
             });
         }
-        else if (type.type === t.function) {
+        else if (type.type === 'function') {
 
-            const asFunction = type as FunctionType;
+            const asFunction = type as FunctionType<any, any>;
             asFunction.input = resolveType(asFunction.input);
             asFunction.output = resolveType(asFunction.output);
         }

@@ -60,7 +60,7 @@ export interface RenderResult {
 
 export interface NodeTextController {
 
-    node: AST.CodeNode
+    node: AST.Nodes
     description: NodeTextDescription<any>
     events: NodeEvents
 

@@ -1,5 +1,6 @@
 import * as program from '../program';
 import {AST, Program} from '../program';
+import * as ASTUtil from '../ast/util';
 import * as $ from 'jquery';
 import * as util from './util';
 import {EventSource} from '../util/events';
@@ -11,6 +12,8 @@ import * as parser from '../parser/custom';
 import * as _ from 'underscore';
 import {Result} from '../util';
 import * as typeChecker from '../types/index';
+import * as interpreter from '../interpreter/index';
+const logParsing = require('debug')('livelang:parsing');
 
 export type ControllerProvider = (node: AST.CodeNode) => NodeTextController;
 export interface DOMData {
@@ -143,12 +146,10 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
         }
         
         const prev = $(range[0]).prev();
-        if (range.length > 0) {
-            $(range).remove();
-        }
-
         const rendered = $(elementsFromController(controller));
+        
         if (prev[0]) {
+            $(range).remove();
             rendered.insertAfter(prev);
         }
         else {
@@ -256,9 +257,15 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
             results.push(wholeParseResult);
 
             if (wholeParseResult.result) {
+
                 const changeResult = controller.handleComponentChange(wholeParseResult.result, textInRange);
                 if (changeResult.success) {
                     renderControllerRange(controller, controllerNodeRange, event.target as HTMLElement);
+                    
+                    const module = ASTUtil.nearestModule(controller.node);
+                    if (!module) debugger;
+                    else interpreter.evaluateModule(module);
+        
                     return;
                 }
             }
@@ -266,7 +273,7 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
             controller = controller.parentController;
         }
 
-        results.forEach(result => console.error(result.error));     
+        results.forEach(result => logParsing(result.error));     
     }, 500);
 
     $(dom).on({
@@ -276,7 +283,7 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
             const focused = event.target as HTMLElement;
             const pos = util.getCaretPosition(focused);
             const fraction = util.getCaretFraction(focused);
-            //debugger;
+
             // 8 backspace, 46 delete
             if (fraction === 0 && code === 8) {
                 const prev = editableSibling(event.target, -1);

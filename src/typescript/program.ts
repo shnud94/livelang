@@ -52,6 +52,7 @@ export class Program {
             _parent: null ,
             version: '0.0.1'
         });
+        reviveNode(this.data, null);
         openPrograms[this.data._id] = this;
     }
 
@@ -70,26 +71,37 @@ export function programToJSON(program: Program) : string {
     }, 2);
 }
 
+export const reviveNode = (val: any, parent: AST.CodeNode = null) => {
+    if (Array.isArray(val)) {
+        val.forEach(val => reviveNode(val, parent));
+    }
+    else if (val.type) {
+        // Assume we've revived a code node
+        // Add id and parent
+        // Keep existing ID if possible
+        if (!val._id) val._id = nextId();
+        
+        val._parent = null;
+        reviveChildren(val);
+        // Order is important here, can't add parent to children before
+        // reviving them, because then we have a circular reference
+        if (!val) debugger;
+        val._parent = parent;
+    }
+};
+
+export const reviveChildren = (object: AST.CodeNode) => {
+    _.values(object).forEach(val => {
+        if (val && typeof(val) === 'object') {
+            reviveNode(val, object);        
+        }
+    });
+};
+
 export function programFromJSON(json: string) : Program {
     const program = new Program();
     const parsed = JSON.parse(json);
-
-    const reviveChildren = (object: AST.CodeNode) => {
-        _.values(object).forEach(val => {
-
-            if (typeof(val) === 'object' && val.type) {
-                // Assume we've revived a code node
-                // Add id and parent
-                val._id = nextId();
-                reviveChildren(val);
-                // Order is important here, can't add parent to children before
-                // reviving them, because then we have a circular reference
-                val.parent = object;
-            }
-        });
-    };
-
-    reviveChildren(parsed);
+    reviveNode(parsed);
     program.data = parsed;
     return program;
 } 

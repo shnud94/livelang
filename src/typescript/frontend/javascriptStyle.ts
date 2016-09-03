@@ -31,7 +31,7 @@ const flatten = (something: any) => {
     return something;
 }
 const assignParent = <T extends AST.CodeNode>(node: T, parent) : T => {
-    if (typeof(node) !== 'object') return;
+    if (typeof(node) !== 'object' || node == null) return;
     node._parent = parent; return node;
 }
 
@@ -55,10 +55,12 @@ export const frontendDescription = {
         if (node.type === 'module') return theModule as any;
         if (node.type === 'expressioncallExpression') return callExpression as any;
         if (node.type === 'expressionmemberAccess') return memberAccessExpression as any;
+        if (node.type === 'expressionfunctionAccess') return functionAccessExpression as any;
         if (node.type === 'assignment') return assignment as any;
         if (node.type === 'expressionmapLiteral') return mapLiteral as any;
         if (node.type === 'expressionidentifier') return identifier as any;
         if (node.type === 'declaration') return declaration as any;
+        if ((node as any).type === 'expressionmapLiteral') return mapLiteral as any; // Why this particular one doesn't work I have no clue
         if (node.type === 'expressionnumericLiteral') return numericLiteral as any;
         if (node.type === 'expressionstringLiteral') return stringLiteral as any;
         if (node.type === 'expressionarrayLiteral') return arrayLiteral as any;
@@ -104,7 +106,7 @@ export const identifier: NodeTextDescription<AST.Identifier> = {
         return [
             {all: [
                 {charset: 'a-zA-Z'},
-                {'*' : {charset: 'a-zA-Z0-9_-'}}
+                {'*' : {charset: 'a-zA-Z0-9_'}}
             ]}
         ]
     },
@@ -165,33 +167,42 @@ export const stringLiteral: NodeTextDescription<AST.StringLiteralNode> = {
     }
 }
 
-const objectField = () => ({all: [expression, ':', expression]});
+const objectField = () => ({all: [identifier, __, ':', __, expression]});
 
 export const mapLiteral: NodeTextDescription<AST.MapLiteralNode> = {
     id: 'mapLiteral',
     updateValueFromComponents: (components, prev) => {
         if (!prev) {
             prev = program.createNode({
-                type: 'expressionMapLiteral',
-                value: null,
+                type: 'expressionmapLiteral',
+                value: {},
                 _parent: prev ? prev._parent : null
             })
         }
 
-        prev.value = flat(components);
+        prev.value = {};
+        const objects = flat(components).filter(c => typeof(c) === 'object') as any;
+        objects.forEach((obj, i) => {
+            if (i % 2 == 0) return;
+            prev.value[objects[i - 1].value] = assignParent(obj, prev);
+        });
         return prev;
     },
     getTextSpecs() {
         return [
             '{',
-            optionally(commaSeparated(objectField())), 
+            __,
+            optionally(commaSeparated(objectField())),
+            __, 
             '}'
         ]
     },
     componentsFromValue: node => {
         return [
-            '{',
-            node.value.toString(),
+            '{\n',
+            _.keys(node.value).map((key, index, array) => {
+               return ['\t', key, ':', ' ', node.value[key], index < array.length - 1 ? ',' : '', '\n']; 
+            }) as any,
             '}'
         ]
     }
@@ -271,6 +282,36 @@ export const arrayLiteral: NodeTextDescription<AST.ArrayLiteralNode> = {
     }
 }
 
+export const functionAccessExpression: NodeTextDescription<AST.FunctionAccessExpression> = {
+    id: 'functionAccess',
+    updateValueFromComponents: (components, prev) => {
+ 
+        if (!prev) {
+            prev = program.createNode({
+                _parent: null,
+                subject: null,
+                member: null,
+                type: 'expressionfunctionAccess'
+            })
+        }
+
+        prev.subject = assignParent(flat(components[0]) as AST.ExpressionType, prev);
+        prev.identifier = assignParent(flat(components[2]) as AST.Identifier, prev);
+
+        return prev;
+    },
+    getTextSpecs: () => ([
+        expression,
+        '->',
+        identifier     
+    ]),
+    componentsFromValue: node => [
+        node.subject,
+        '->',
+        node.identifier
+    ]
+}
+
 export const memberAccessExpression: NodeTextDescription<AST.MemberAccessExpression> = {
     id: 'memberAccess',
     updateValueFromComponents: (components, prev) => {
@@ -284,8 +325,8 @@ export const memberAccessExpression: NodeTextDescription<AST.MemberAccessExpress
             })
         }
 
-        prev.subject = flat(components[0]) as AST.ExpressionType;
-        prev.member = flat(components[2]) as AST.Identifier;
+        prev.subject = assignParent(flat(components[0]) as AST.ExpressionType, prev);
+        prev.member = assignParent(flat(components[2]) as AST.Identifier, prev);
 
         return prev;
     },
@@ -314,14 +355,14 @@ export const callExpression: NodeTextDescription<AST.CallExpressionNode> = {
             })
         }
 
-        prev.target = flat(components[0]) as AST.ExpressionType;
-        prev.input = flat(components[1])[1] as AST.ExpressionType;
+        prev.target = assignParent(flat(components[0]) as AST.ExpressionType, prev);
+        prev.input = assignParent(flat(components[1])[1] as AST.ArrayLiteralNode, prev);
 
         return prev;
     },
     getTextSpecs: () => ([
         expression,
-        {all: ['(', {'?': expression}, ')']}        
+        {all: ['(', {'?': arrayLiteral}, ')']}        
     ]),
     componentsFromValue: node => [
         node.target,
@@ -348,8 +389,12 @@ export const binaryExpression: NodeTextDescription<AST.CallExpressionNode> = (()
                 })
             }
 
-            prev.target = AST.createIdentifier(flat(components)[2]);
-            prev.input = AST.createArrayLiteral([flat(components)[0] as any, flat(components)[4] as any]);
+            const [lhs, rhs] = [flat(components)[0] as any, flat(components)[4] as any];
+            prev.target = AST.createIdentifier(flat(components)[2], prev);
+            if (lhs && rhs) {
+                prev.input = AST.createArrayLiteral([lhs, rhs], prev);
+            }
+
             return prev;
         },
         getTextSpecs: () => [{or: 
@@ -375,10 +420,12 @@ const expressions = [
     numericLiteral,
     stringLiteral,
     arrayLiteral,
+    mapLiteral,
+    functionAccessExpression,
     binaryExpression,    
     prefixExpression,    
     memberAccessExpression,
-    callExpression,
+    callExpression,    
 ];
 
 export const expression: TextDescription<AST.ExpressionType> = {
@@ -560,7 +607,9 @@ export const theModule: NodeTextDescription<AST.ModuleNode> = {
             })
         }
 
-        node.children = (flat(components[6]) as Array<any>).filter(child => typeof(child) !== 'string');
+        node.children = (flat(components[6]) as Array<any>).filter(child => typeof(child) !== 'string').map(child => {
+            return assignParent(child, node);    
+        });
         node.identifier = assignParent(flat(components[2]), node);
         return node;
     },

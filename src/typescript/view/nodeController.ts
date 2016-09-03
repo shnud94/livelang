@@ -51,8 +51,6 @@ export const basicController = (node: AST.Nodes, parent?: NodeTextController) : 
             node.display = node.display || {};
             node.display.whitespace = whitespace;
 
-            console.log('whitespace: ' + whitespace);
-            console.log('length: ' + whitespace.length);
             return {
                 errors: [],
                 success: true,

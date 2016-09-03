@@ -1,4 +1,5 @@
 import {EventSource} from '../util/events';
+import {Type} from '../types/index';
 
 export type CodeNodeType = string;
 
@@ -7,10 +8,17 @@ interface CodeNodeRuntime {
         nodeChanged: EventSource<void>,
         nodeInterpreted: EventSource<any>,
         nodeError: EventSource<string>
-    }
+    },
+
+    /**
+     * This should definitely exist by runtime because we have to do type checking to get to runtime, which should populate this field
+     */
+    type: Type
 }
 
-export type Nodes = AssignmentNode | DeclarationNode | ModuleNode | TypeDeclaration | Identifier | CallExpressionNode | MemberAccessExpression | ExpressionType;
+
+export type Nodes = AssignmentNode | DeclarationNode | ModuleNode | TypeDeclaration | Identifier | CallExpressionNode | MemberAccessExpression | ExpressionType | MapLiteralNode;
+
 
 export interface CodeNode {
     _id?: string
@@ -26,7 +34,8 @@ export interface CodeNode {
         whitespace?: string
     }
     
-    _parent: CodeNode,    
+
+    _parent: Nodes,    
 }
 
 export interface AssignmentNode extends CodeNode {
@@ -81,23 +90,40 @@ export interface TypeDeclaration extends CodeNode {
     typeExpression: ExpressionType 
 }
 
-export type ExpressionType = Identifier | CallExpressionNode | MemberAccessExpression | ArrayLiteralNode | NumericLiteralNode | MapLiteralNode | StringLiteralNode | CallableLiteral;
+export type ExpressionType = Identifier | CallExpressionNode | MemberAccessExpression | FunctionAccessExpression | ArrayLiteralNode | NumericLiteralNode | MapLiteralNode | StringLiteralNode | CallableLiteral;
 export interface Identifier extends CodeNode {
     type: 'expressionidentifier'
     value: string
 }
 
+/**
+ * Access a member of a map type or array
+ */
 export interface MemberAccessExpression extends CodeNode {
     type: 'expressionmemberAccess',
-    member: Identifier
+    member: ExpressionType
+    subject: ExpressionType
+}
+
+/**
+ * Call a function that is available for this type
+ */
+export interface FunctionAccessExpression extends CodeNode {
+    type: 'expressionfunctionAccess',
+    identifier: Identifier
     subject: ExpressionType
 }
 
 export interface CallableLiteral extends CodeNode {
     type: 'expressioncallableLiteral'
-    input: ExpressionType,
-    body: ModuleChild
+
+    input: {type: ExpressionType, identifier: string}[],
+    body: ModuleChild[]
+
     output: ExpressionType
+    _runtime?: CodeNodeRuntime & {
+        impl: Function
+    }
 }
 
 export interface PrefixExpressionNode extends CodeNode {
@@ -125,7 +151,7 @@ export interface MapLiteralNode extends CodeNode {
 export interface CallExpressionNode extends CodeNode {
     type: 'expressioncallExpression'
     target: ExpressionType
-    input?: ExpressionType
+    input?: ArrayLiteralNode
 }
 
 export type ModuleChild = DeclarationNode | ExpressionType | AssignmentNode | TypeDeclaration | ModuleNode;
@@ -152,15 +178,18 @@ export function createProgram() : ModuleNode {
     } as ModuleNode;
 }
 
-export function createArrayLiteral(values: ExpressionType[], parent?: CodeNode) : ArrayLiteralNode {
-    return {
+
+export function createArrayLiteral(values: ExpressionType[], parent?: Nodes) : ArrayLiteralNode {
+    let arrayLiteral: ArrayLiteralNode = {
         type: 'expressionarrayLiteral',
         value: values,
-        _parent: null    
+        _parent: parent    
     }
+    arrayLiteral.value.forEach(v => v._parent = arrayLiteral);
+    return arrayLiteral;
 }
 
-export function createIdentifier(identifier: string, parent?: CodeNode) : Identifier {
+export function createIdentifier(identifier: string, parent?: Nodes) : Identifier {
     return {
         type: 'expressionidentifier',
         value: identifier,
