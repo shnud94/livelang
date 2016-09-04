@@ -91,7 +91,8 @@ export const reviveNode = (val: any, parent: AST.CodeNode = null) => {
 };
 
 export const reviveChildren = (object: AST.CodeNode) => {
-    _.values(object).forEach(val => {
+    _.keys(object).filter(k => !k.startsWith('_')).forEach(key => {
+        const val = object[key];
         if (val && typeof(val) === 'object') {
             reviveNode(val, object);        
         }

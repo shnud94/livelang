@@ -51,6 +51,12 @@ export const basicController = (node: AST.Nodes, parent?: NodeTextController) : 
             node.display = node.display || {};
             node.display.whitespace = whitespace;
 
+            // When we copy over the properties of the new value that was parsed, any children of the parsed value
+            // point back up at that node. That will no longer be valid, as we discard the new object. So we need to go through 
+            // and make sure they point back up to us, not the parsed thing. Setting parents top down seems easier than setting 
+            // them bottom up, so we'll just go down and reset parents
+            program.reviveChildren(node);
+
             return {
                 errors: [],
                 success: true,
