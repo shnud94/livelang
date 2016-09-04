@@ -10,6 +10,9 @@ import * as View from '../view/index';
 import {TextDescription, NodeTextDescription, TextSpec} from './index';
 
 const frontendId = 'javascript';
+const justObjects = (something: any) => {
+    return _.flatten(something).filter(s => typeof(s) === 'object');
+}
 const flat = (something: any) => {
     if (Array.isArray(something)) {
         const flattened = _.flatten(something);
@@ -59,6 +62,7 @@ export const frontendDescription = {
         if (node.type === 'assignment') return assignment as any;
         if (node.type === 'expressionmapLiteral') return mapLiteral as any;
         if (node.type === 'expressionidentifier') return identifier as any;
+        if (node.type === 'expressioncallableLiteral') return callableLiteral as any;
         if (node.type === 'declaration') return declaration as any;
         if ((node as any).type === 'expressionmapLiteral') return mapLiteral as any; // Why this particular one doesn't work I have no clue
         if (node.type === 'expressionnumericLiteral') return numericLiteral as any;
@@ -342,6 +346,88 @@ export const memberAccessExpression: NodeTextDescription<AST.MemberAccessExpress
     ]
 }
 
+export const callableLiteral: NodeTextDescription<AST.CallableLiteral> = {
+    id: 'callableLiteral',
+    updateValueFromComponents: (components, prev) => {
+        if (!prev) {
+            prev = program.createNode({
+                _parent: null,
+                input: [],
+                output: null,
+                type: 'expressioncallableLiteral',
+                body: []
+            })
+        }
+
+        const input = _.flatten(components[1] as any);
+        const inputs = [];
+        let lastVar = null;
+        let addVarNoType = ident => inputs.push({type: AST.createIdentifier('any'), identifier: lastVar.value});
+        input.forEach(val => {
+            if (typeof(val) === 'string' && val.trim() === ',') {
+                if (lastVar) addVarNoType(lastVar);
+                lastVar = null;
+                return;
+            }
+
+            if (val != null && typeof(val) === 'object' && val.type) {
+                if (lastVar) {
+                    inputs.push({
+                        type: val,
+                        identifier: lastVar.value
+                    });
+                    lastVar = null;
+                }
+                else {
+                    lastVar = val;
+                }
+            }
+        });
+        if (lastVar) addVarNoType(lastVar);
+
+        prev.input = inputs.map(input => assignParent(input, prev));
+        prev.body = _.flatten(components[10] as any).filter(c => typeof(c) === 'object') as AST.ModuleChild[];
+        prev.output = justObjects(_.flatten(components[4] as any))[0] || AST.createIdentifier('null', prev);
+        return prev;
+    },
+    getTextSpecs: () => ([
+        '(',
+        optionally(commaSeparated({all: [
+            identifier, 
+            {'?' : {all: [__, ':', __, expression]}}
+        ]})),
+        ')',
+        __,
+        {'?' : {all: [__, ':', __, expression]}},
+        __,
+        '->',
+        __,
+        '{',
+        __,
+        {'*': {all: [ // 6
+            {or: [assignment, expression, declaration, typeDeclaration]},
+            __,  
+            ';',
+            __
+        ]}},
+        __,
+        '}'     
+    ]),
+    componentsFromValue: node => [
+        '(',
+        _.flatten(node.input.map((input, index, array) => {
+           return [input.identifier, ': ', input.type, index === array.length - 1 ? '' : ', ']     
+        })),
+        ') -> {\n',
+        node.body.map(child => {
+            return [child, ';\n']
+        }) as any,
+        '',
+        '}' 
+    ]
+
+}
+
 export const callExpression: NodeTextDescription<AST.CallExpressionNode> = {
     id: 'callExpression',
     updateValueFromComponents: (components, prev) => {
@@ -417,6 +503,7 @@ export const binaryExpression: NodeTextDescription<AST.CallExpressionNode> = (()
 
 const expressions = [
     identifier,
+    callableLiteral,
     numericLiteral,
     stringLiteral,
     arrayLiteral,
@@ -426,6 +513,7 @@ const expressions = [
     prefixExpression,    
     memberAccessExpression,
     callExpression,    
+    
 ];
 
 export const expression: TextDescription<AST.ExpressionType> = {

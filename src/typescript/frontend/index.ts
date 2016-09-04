@@ -35,6 +35,17 @@ type TextComponentType =
      */
     | AST.CodeNode;
 
+export interface TextComponentExtra {
+    className?: string
+    valueOfNode?: string // string being id
+    typeOfNode?: string // string being id
+} 
+
+export type OutputTextComponent = TextComponent | {
+    component: TextComponent,
+    extra: TextComponentExtra
+}
+
 export interface NodeTextDisplayOptions {
 breaksLine?: boolean,
 

@@ -53,6 +53,10 @@ buttons.append($('<button>').text('Load').click(() => {
     });
 }));
 
+buttons.append($('<button>').text('Render All').click(() => {
+    view.mountProgramView(theProgram, content[0]);
+}));
+
 view.mountProgramView(theProgram, content[0]);
 
 

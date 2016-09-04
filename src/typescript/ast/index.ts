@@ -122,7 +122,7 @@ export interface CallableLiteral extends CodeNode {
     input: {type: ExpressionType, identifier: string}[],
     body: ModuleChild[]
 
-    output: ExpressionType
+    output?: ExpressionType
     _runtime?: CodeNodeRuntime & {
         impl: (raw: RunTimeRepresentation<any>[]) => RunTimeRepresentation<any>
     }

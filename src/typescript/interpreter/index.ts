@@ -36,7 +36,7 @@ export function evaluateExpression(expr: AST.ExpressionType, context: RunContext
     function getExpressionResult() {
         const {typeCheckContext, stack} = context;
         if (expr.type === 'expressionidentifier') {
-            return stack.declared[expr.value];
+            return fetchDeclared(expr.value, stack);
         }
         if (expr.type === 'expressioncallExpression') {
             return evaluateCallExpression(expr, context) as any;
@@ -88,6 +88,10 @@ export function evaluateExpression(expr: AST.ExpressionType, context: RunContext
         context.resultsPerNode[expr._id] = (context.resultsPerNode[expr._id] || []).concat(result);
     } 
     return result;    
+}
+
+export function fetchDeclared(identifier: string, stack: Stack) {
+    return stack.declared[identifier] || (stack.parent ? fetchDeclared(identifier, stack.parent) : null);
 }
 
 export function evaluateCallExpression(expr: AST.CallExpressionNode, context: RunContext) : RunTimeRepresentation<any> | void {
