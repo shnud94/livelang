@@ -1,10 +1,11 @@
 import {EventSource} from '../util/events';
 import {Type} from '../types/index';
+import {RunTimeRepresentation} from '../interpreter/runtime/reps';
 
 export type CodeNodeType = string;
 
 interface CodeNodeRuntime {
-    events: {
+    events?: {
         nodeChanged: EventSource<void>,
         nodeInterpreted: EventSource<any>,
         nodeError: EventSource<string>
@@ -13,7 +14,7 @@ interface CodeNodeRuntime {
     /**
      * This should definitely exist by runtime because we have to do type checking to get to runtime, which should populate this field
      */
-    type: Type
+    type?: Type
 }
 
 
@@ -46,10 +47,11 @@ export interface AssignmentNode extends CodeNode {
 
 export interface DeclarationNode extends CodeNode {
     type: 'declaration',
-    mutable: boolean
+    flags: Set<'mutable' | 'function'>
     identifier: Identifier,
     valueExpression?: ExpressionType,
     typeExpression?: ExpressionType
+
 }
 
 export interface ImportNode extends CodeNode {
@@ -122,7 +124,7 @@ export interface CallableLiteral extends CodeNode {
 
     output: ExpressionType
     _runtime?: CodeNodeRuntime & {
-        impl: Function
+        impl: (raw: RunTimeRepresentation<any>[]) => RunTimeRepresentation<any>
     }
 }
 
@@ -158,6 +160,9 @@ export interface CallExpressionNode extends CodeNode {
     type: 'expressioncallExpression'
     target: ExpressionType
     input?: ArrayLiteralNode
+    _runtime: CodeNodeRuntime & {
+        target: CallableLiteral
+    }
 }
 
 export type ModuleChild = DeclarationNode | ExpressionType | AssignmentNode | TypeDeclaration | Scope | ModuleNode;

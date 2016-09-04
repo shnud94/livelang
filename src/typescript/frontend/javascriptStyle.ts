@@ -523,56 +523,72 @@ export const typeDeclaration: NodeTextDescription<AST.TypeDeclaration> = {
     ]
 };
 
-export const declaration: NodeTextDescription<AST.DeclarationNode> = {
-    id: 'declaration',
-    updateValueFromComponents: (components, prev) => {
-        
-        if (!prev) {
-            prev = program.createNode({
-                type: 'declaration',
-                _parent: null, // TODO: How are we going to make sure parent isn't null when first creating a node?
-                mutable: null,
-                identifier: null,
-                valueExpression: null,
-                typeExpression: null
-            })
-        }
+export const declaration: NodeTextDescription<AST.DeclarationNode> = (() => {
+    const flagToText = flag => {
+        return {
+            'mutable' : 'mut',
+            'function' : 'func'
+        }[flag] || flag;
+    }
 
-        prev.mutable = (flat(components[0]) || '').trim() === 'var';
-        prev.identifier = assignParent(flat(components[2]), prev);
-        
-        const maybeTypeExpression = (flat(components[4]) || []) [2] as any;
-        if (maybeTypeExpression) {
-            prev.typeExpression = assignParent(maybeTypeExpression, prev);
-        }
+    return {
+        id: 'declaration',
+        updateValueFromComponents: (components, prev) => {
+            
+            if (!prev) {
+                prev = program.createNode({
+                    type: 'declaration',
+                    _parent: null, // TODO: How are we going to make sure parent isn't null when first creating a node?
+                    mutable: null,
+                    identifier: null,
+                    valueExpression: null,
+                    typeExpression: null
+                })
+            }
 
-        const maybeValueExpression = (flat(components[6]) || []) [2] as any;
-        if (maybeValueExpression) {
-            prev.valueExpression = assignParent(maybeValueExpression, prev);
-        }
-        
-        return prev;
-    },
-    getTextSpecs: () => [
-        {or: ['let', 'var']},
-        ___,
-        identifier,
-        __,
-        {'?': {all: [':', __, expression]}}, // Type expression,
-        __,
-        {'?': {all: ['=', __, expression]}}, // Initial assignment
-    ],
-    displayOptions: () => [null, null, null, null, null, null, null],
-    componentsFromValue: node => [
-        node.mutable ? 'var' : 'let',
-        ' ',
-        node.identifier,
-        (node.typeExpression || node.valueExpression) ? ' ' : '',
-        node.typeExpression ? [': ', node.typeExpression] : null,
-        node.typeExpression ? ' ' : '',
-        node.valueExpression ? ['= ', node.valueExpression] : null,
-    ]
-};
+            prev.flags = new Set();
+            if ((flat(components[0]) || '').trim() === 'var') {
+                prev.flags.add('mutable');
+            }
+            else if ((flat(components[0]) || '').trim() === 'function') {
+                prev.flags.add('function');
+            }
+
+            prev.identifier = assignParent(flat(components[2]), prev);
+            
+            const maybeTypeExpression = (flat(components[4]) || []) [2] as any;
+            if (maybeTypeExpression) {
+                prev.typeExpression = assignParent(maybeTypeExpression, prev);
+            }
+
+            const maybeValueExpression = (flat(components[6]) || []) [2] as any;
+            if (maybeValueExpression) {
+                prev.valueExpression = assignParent(maybeValueExpression, prev);
+            }
+            
+            return prev;
+        },
+        getTextSpecs: () => [
+            {or: ['let', 'mut', 'func']},
+            ___,
+            identifier,
+            __,
+            {'?': {all: [':', __, expression]}}, // Type expression,
+            __,
+            {'?': {all: ['=', __, expression]}}, // Initial assignment
+        ],
+        displayOptions: () => [null, null, null, null, null, null, null],
+        componentsFromValue: node => [
+            node.flags.size > 0 ? flagToText(Array.from(node.flags)[0]) : 'let',
+            ' ',
+            node.identifier,
+            (node.typeExpression || node.valueExpression) ? ' ' : '',
+            node.typeExpression ? [': ', node.typeExpression] : null,
+            node.typeExpression ? ' ' : '',
+            node.valueExpression ? ['= ', node.valueExpression] : null,
+        ]
+    };
+})();
 
 export const theModule: NodeTextDescription<AST.ModuleNode> = {
     id: 'module',

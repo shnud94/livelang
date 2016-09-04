@@ -22,7 +22,7 @@ export class Program {
 
                 createNode({
                     type: 'declaration',
-                    mutable: true,
+                    flags: new Set(),
                     identifier: createNode(AST.createIdentifier('myVar1')),
                     valueExpression: null,
                     typeExpression: null,
@@ -31,7 +31,7 @@ export class Program {
 
                 createNode({
                     type: 'declaration',
-                    mutable: true,
+                    flags: new Set(),
                     identifier: createNode(AST.createIdentifier('myVar2')),
                     valueExpression: null,
                     typeExpression: null,
@@ -40,7 +40,7 @@ export class Program {
 
                 {
                     type: 'declaration',
-                    mutable: true,
+                    flags: new Set(),
                     identifier: createNode(AST.createIdentifier('myVar3')),
                     valueExpression: null,
                     typeExpression: null,

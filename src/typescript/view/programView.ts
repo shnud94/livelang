@@ -264,7 +264,10 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
                     
                     const module = ASTUtil.nearestModule(controller.node);
                     if (!module) debugger;
-                    else interpreter.evaluateModule(module);
+                    else {
+                        const contextAfterRun = interpreter.evaluateModule(module);
+                        console.log(contextAfterRun);
+                    }
         
                     return;
                 }

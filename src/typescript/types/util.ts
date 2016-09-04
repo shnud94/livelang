@@ -1,6 +1,6 @@
 import * as Types from './index';
 
-interface RunTimeFunction<I, O> extends Types.FunctionType<I, O> {
+interface RunTimeFunction<I, O> extends Types.FunctionType {
     impl: (input: any) => any
 }
 

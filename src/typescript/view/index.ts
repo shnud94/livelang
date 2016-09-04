@@ -5,7 +5,7 @@ import * as util from './util';
 import {EventSource} from '../util/events';
 import * as Frontend from '../frontend/index';
 import {NodeTextDescription, TextComponent} from '../frontend/index';
-import {TypeCheckContext} from '../types/index';
+import {TypeCheckContext} from '../types/checker';
 import * as js from '../frontend/javascriptStyle';
 
 export type ComponentDescription = string | NodeTextController;

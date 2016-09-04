@@ -1,11 +1,13 @@
 import * as Types from '../../types/index';
 import * as AST from '../../ast/index';
-const builtIn = Types.BuiltInTypes;
+import {BuiltInTypes as builtIn} from '../../types/builtin';
 
+export type RunTimeFunction = (args: RunTimeRepresentation<any>[]) => RunTimeRepresentation<any>;
 export interface RunTimeRepresentation<T extends Types.Type> {
     rawValue: any,
     stringValue(): string,
-    
+    clone(): this
+
     /**
      * Optional for the time being as not sure if absolutely necessary, especially when we start getting into 
      * array and map types. Why don't we just use our type check context? Is speed really an issue?
@@ -17,108 +19,108 @@ export const callableRep = (instructions: AST.ModuleChild[] | Function, identifi
     let rep = {
         rawValue: instructions,
         stringValue: () => rep.rawValue.toString(),
-        identifiers: []
+        identifiers: [],
+        clone: () => rep
     }
     return rep;
 }
 
-export const booleanRep = () => {
+export const booleanRep = (val?: boolean) => {
     let rep = {
-        rawValue: false,
+        rawValue: val || false,
         stringValue : () => rep.rawValue.toString(),
         flip: () => rep.rawValue = !rep.rawValue,
         set(val: boolean) {rep.rawValue = val},
-        type: builtIn.boolean
+        type: builtIn.boolean,
+        clone: () => rep
     }
     return rep;    
 }
 
-export const float16Rep = () => {
+export const float32Rep = (val?: number) => {
     let rep = {
-        rawValue: 0,
+        rawValue: val || 0,
         stringValue : () => rep.rawValue.toString(),
         set(val: number) {rep.rawValue = val},
-        type: builtIn.float16
+        type: builtIn.float32,
+        clone: () => rep
+    }
+    return rep;    
+} 
+
+export const float64Rep = (val?: number) => {
+    let rep = {
+        rawValue: val || 0,
+        stringValue : () => rep.rawValue.toString(),
+        set(val: number) {rep.rawValue = val},
+        type: builtIn.float64,
+        clone: () => _.extend({}, rep)
+    }
+    return rep;    
+} 
+
+export const int8Rep = (val?: number) => {
+    let rep = {
+        rawValue: val || 0,
+        stringValue : () => rep.rawValue.toString(),
+        set(val: number) {rep.rawValue = val},
+        type: builtIn.int8,
+        clone: () => _.extend({}, rep)
+    }
+    return rep;    
+} 
+
+export const int16Rep = (val?: number) => {
+    let rep = {
+        rawValue: val || 0,
+        stringValue : () => rep.rawValue.toString(),
+        set(val: number) {rep.rawValue = val},
+        type: builtIn.int16,
+        clone: () => _.extend({}, rep)
+    }
+    return rep;    
+} 
+
+export const int32Rep = (val?: number) => {
+    let rep = {
+        rawValue: val || 0,
+        stringValue : () => rep.rawValue.toString(),
+        set(val: number) {rep.rawValue = val},
+        type: builtIn.int32,
+        clone: () => _.extend({}, rep)
     }
     return rep;    
 }
 
-export const float32Rep = () => {
+export const uint8Rep = (val?: number) => {
     let rep = {
-        rawValue: 0,
+        rawValue: val || 0,
         stringValue : () => rep.rawValue.toString(),
         set(val: number) {rep.rawValue = val},
-        type: builtIn.float32
+        type: builtIn.uint8,
+        clone: () => _.extend({}, rep)
     }
     return rep;    
 } 
 
-export const float64Rep = () => {
+export const uint16Rep = (val?: number) => {
     let rep = {
-        rawValue: 0,
+        rawValue: val || 0,
         stringValue : () => rep.rawValue.toString(),
         set(val: number) {rep.rawValue = val},
-        type: builtIn.float64
+        type: builtIn.uint16,
+        clone: () => _.extend({}, rep)
     }
     return rep;    
 } 
 
-export const int8Rep = () => {
+export const uint32Rep = (val?: number) => {
     let rep = {
-        rawValue: 0,
+        rawValue: val || 0,
         stringValue : () => rep.rawValue.toString(),
         set(val: number) {rep.rawValue = val},
-        type: builtIn.int8
-    }
-    return rep;    
-} 
-
-export const int16Rep = () => {
-    let rep = {
-        rawValue: 0,
-        stringValue : () => rep.rawValue.toString(),
-        set(val: number) {rep.rawValue = val},
-        type: builtIn.int16
-    }
-    return rep;    
-} 
-
-export const int32Rep = () => {
-    let rep = {
-        rawValue: 0,
-        stringValue : () => rep.rawValue.toString(),
-        set(val: number) {rep.rawValue = val},
-        type: builtIn.int32
-    }
-    return rep;    
-}
-
-export const uint8Rep = () => {
-    let rep = {
-        rawValue: 0,
-        stringValue : () => rep.rawValue.toString(),
-        set(val: number) {rep.rawValue = val},
-        type: builtIn.uint8
-    }
-    return rep;    
-} 
-
-export const uint16Rep = () => {
-    let rep = {
-        rawValue: 0,
-        stringValue : () => rep.rawValue.toString(),
-        set(val: number) {rep.rawValue = val},
-        type: builtIn.uint16
-    }
-    return rep;    
-} 
-
-export const uint32Rep = () => {
-    let rep = {
-        rawValue: 0,
-        stringValue : () => rep.rawValue.toString(),
-        set(val: number) {rep.rawValue = val},
-        type: builtIn.uint32
+        type: builtIn.uint32,
+        clone: () => _.extend({}, rep)
     }
     return rep;    
 } 
@@ -127,16 +129,18 @@ export const arrayRep = () => {
     let rep = {
         rawValue: [],
         stringValue : () => rep.rawValue.toString(),
-        set(val: Array<any>) {rep.rawValue = val}
+        set(val: Array<any>) {rep.rawValue = val},
+        clone: () => _.extend({}, rep)
     }
     return rep;    
 }
 
-export const stringRep = () => {
+export const stringRep = (val?: string) => {
     let rep = {
-        rawValue: '',
+        rawValue: val || '',
         stringValue : () => rep.rawValue.toString(),
-        set(val: string) {rep.rawValue = val}
+        set(val: string) {rep.rawValue = val},
+        clone: () => _.extend({}, rep)
     }
-    return rep;    
+    return rep;
 }
