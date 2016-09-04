@@ -126,6 +126,12 @@ export interface CallableLiteral extends CodeNode {
     }
 }
 
+export interface Scope extends CodeNode {
+    type: 'scope',
+    flags: Set<'init' | 'deinit'>,
+    children: ModuleChild[]
+}
+
 export interface PrefixExpressionNode extends CodeNode {
     operator: string,
     subExpression: ExpressionType 
@@ -154,7 +160,7 @@ export interface CallExpressionNode extends CodeNode {
     input?: ArrayLiteralNode
 }
 
-export type ModuleChild = DeclarationNode | ExpressionType | AssignmentNode | TypeDeclaration | ModuleNode;
+export type ModuleChild = DeclarationNode | ExpressionType | AssignmentNode | TypeDeclaration | Scope | ModuleNode;
 export interface ModuleNode extends CodeNode {
     type: 'module',
 
