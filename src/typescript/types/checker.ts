@@ -292,7 +292,7 @@ export function resolveFunctionByIdentifier(identifier: string, match: {inputTyp
 
     if (!found || found.length === 0) return null;
 
-    return found.filter(decl => {
+    const matches = found.filter(decl => {
         const functionType = typeCheckExpression(decl.valueExpression, context, scope) as FunctionType;
         if (match.inputType && !typesMatch(functionType.input, match.inputType)) {
             return false;
@@ -302,12 +302,26 @@ export function resolveFunctionByIdentifier(identifier: string, match: {inputTyp
         }
 
         return true;
-    })[0].valueExpression as AST.CallableLiteral;
+    });
+
+    if (matches.length > 1) {
+        context.errors.push(createError('Function call is ambiguous'));
+        return null;
+    }
+    if (matches.length === 0) { 
+        context.errors.push(createError('Function has no matching input'));
+        return null;
+    }
+    return matches[0].valueExpression as AST.CallableLiteral;
 }
 
 export function typeCheckExpression(expression: AST.ExpressionType, context: TypeCheckContext, scope: Scope) : Type {
+    if (!expression) {
+        return b.null;
+    }
 
     function getType() {
+        
         if (expression.type === 'expressionidentifier') {
         
             if (expression.value === 'false' || expression.value === 'true') return b.boolean;
@@ -364,8 +378,12 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
 
             const inputType = typeCheckExpression(expression.input, context, scope);
 
+            // We resolve the callable here, why? We mostly want to do everything we can
+            // in the type checking phase. Otherwise we defer until interpreter phase, which really
+            // we just want to take stuff and do stuff instead of checking things and deciding things (I think?)
             let functionType: Type;
             let callable: AST.CallableLiteral;
+
             if (expression.target.type === 'expressionidentifier') {
                 callable = resolveFunctionByIdentifier(expression.target.value, {inputType: inputType}, context, scope);
                 functionType = typeCheckExpression(callable, context, scope) as FunctionType;

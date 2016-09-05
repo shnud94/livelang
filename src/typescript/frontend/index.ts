@@ -35,15 +35,22 @@ type TextComponentType =
      */
     | AST.CodeNode;
 
-export interface TextComponentExtra {
-    className?: string
-    valueOfNode?: string // string being id
-    typeOfNode?: string // string being id
+export interface Classes {
+    kind: 'classes',
+    classes: string[]
 } 
 
-export type OutputTextComponent = TextComponent | {
-    component: TextComponent,
-    extra: TextComponentExtra
+export type CoolComponentExtra = ResultViewer | Classes;
+export interface ResultViewer {
+    kind: 'resultViewer',
+    node: AST.DeclarationNode | AST.ExpressionType | AST.AssignmentNode,
+    children?: CoolComponent
+}
+
+export type CoolComponent = CoolComponentType | CoolComponentType[];
+export type CoolComponentType = TextComponent | {
+    children: CoolComponent
+    extras: CoolComponentExtra[]
 }
 
 export interface NodeTextDisplayOptions {
@@ -70,6 +77,7 @@ export interface TextDescription<T> {
     getTextSpecs: () => TextSpec[]
 
     componentsFromValue: (node: T) => TextComponent[],
+    coolComponentsFromValue?: (node: T) => CoolComponent
     updateValueFromComponents(components: TextComponent[], prev?: T) : T
 
     /**

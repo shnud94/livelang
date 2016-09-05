@@ -140,6 +140,9 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
     }
 
     const renderControllerRange = (controller: NodeTextController, range: HTMLElement[], focused?: HTMLElement) => {
+        controller = rootController; // render the whole fukin thing for now
+        range = [];
+        
         let charsFromControllerFirstNode: number;
         if (focused) {
             charsFromControllerFirstNode = getCharsIntoController(controller, focused);

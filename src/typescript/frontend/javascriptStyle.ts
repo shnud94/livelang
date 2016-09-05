@@ -38,6 +38,17 @@ const assignParent = <T extends AST.CodeNode>(node: T, parent) : T => {
     node._parent = parent; return node;
 }
 
+export const output = {
+    separated(array: any[], separator: string) {
+        return _.flatten(array.map((el, index) => {
+            if (index < array.length - 1) {
+                return [el, separator];
+            }
+            return el;
+        }));
+    }
+}
+
 export const frontendDescription = {
     descriptorForNode<T extends AST.Nodes>(node: T) : NodeTextDescription<T> {
         
@@ -442,18 +453,18 @@ export const callExpression: NodeTextDescription<AST.CallExpressionNode> = {
         }
 
         prev.target = assignParent(flat(components[0]) as AST.ExpressionType, prev);
-        prev.input = assignParent(flat(components[1])[1] as AST.ArrayLiteralNode, prev);
+        prev.input = AST.createArrayLiteral(justObjects(flat(components[1])) as any[], prev);
 
         return prev;
     },
     getTextSpecs: () => ([
         expression,
-        {all: ['(', {'?': arrayLiteral}, ')']}        
+        {all: ['(', optionally(commaSeparated(expression)), ')']}        
     ]),
     componentsFromValue: node => [
         node.target,
         '(', 
-        node.input ? node.input : '',
+        node.input ? output.separated(node.input.value, ', ') : '',
         ')'
     ]
 }
@@ -513,7 +524,6 @@ const expressions = [
     prefixExpression,    
     memberAccessExpression,
     callExpression,    
-    
 ];
 
 export const expression: TextDescription<AST.ExpressionType> = {
@@ -541,7 +551,6 @@ export const expression: TextDescription<AST.ExpressionType> = {
 export const assignment: NodeTextDescription<AST.AssignmentNode> = {
     id: 'assignment',
     updateValueFromComponents: (components, prev) => {
-        
         if (!prev) {
             prev = program.createNode({
                 type: 'assignment',
@@ -569,7 +578,24 @@ export const assignment: NodeTextDescription<AST.AssignmentNode> = {
         '=',
         ' ',
         node.valueExpression
-    ]
+    ],
+    coolComponentsFromValue: (node: AST.AssignmentNode) => {
+        return {
+            children: [
+                node.identifier,
+                ' ',
+                '=',
+                ' ',
+                node.valueExpression
+            ],
+            extras: [
+                {
+                    kind: 'resultViewer',
+                    node: node
+                }
+            ]
+        }
+    }
 };
 
 export const typeDeclaration: NodeTextDescription<AST.TypeDeclaration> = {

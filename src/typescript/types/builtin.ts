@@ -1,7 +1,7 @@
-import {createValueType} from './index';
+import {createValueType, getAnyType} from './index';
 
 export const BuiltInTypes = {
-    any: createValueType('any'),
+    any: getAnyType(),
     
     string: createValueType('string'),
     
