@@ -114,3 +114,12 @@ body {
         font-family: 'menlo', monospace;
     }
 }
+
+.line-view {
+    span {
+        &, &:focus, &:active, &:hover {
+            border: none;
+            outline: none;
+        }
+    }
+}

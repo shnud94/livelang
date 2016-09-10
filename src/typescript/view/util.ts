@@ -113,3 +113,12 @@ export function getCaretPosition(el: HTMLElement) {
 export function setCaretPosition(el: HTMLElement, pos: number) {
     return ($(el) as any).caret('pos', pos);
 }
+
+export function getCharXOffset(el: HTMLElement) : number {
+    const d = document as any;
+    el.focus();
+    var Sel = d.selection.createRange();
+    var SelLength = d.selection.createRange().text.length;
+    Sel.moveStart('character', -el.innerText.length);
+    return Sel.text.length - SelLength;
+} 

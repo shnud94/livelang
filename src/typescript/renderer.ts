@@ -6,13 +6,14 @@ import {remote} from 'electron';
 import * as fs from 'fs';
 import * as types from './types/index';
 import * as settings from './settings/index';
+import * as lineView from './view/lineView';
 const dialog = remote.dialog;
 
 function loadFromPath(path: string) {
     try {
-        theProgram = program.programFromJSON(fs.readFileSync(path, 'utf-8'));
-        settings.lastOpenedFile.set(path);
-        view.mountProgramView(theProgram, content[0]);
+        // theProgram = program.programFromJSON(fs.readFileSync(path, 'utf-8'));
+        // settings.lastOpenedFile.set(path);
+        // view.mountProgramView(theProgram, content[0]);
     } catch (e) {
         console.error('Unable to load most recent file');
     }    
@@ -57,8 +58,10 @@ buttons.append($('<button>').text('Render All').click(() => {
     view.mountProgramView(theProgram, content[0]);
 }));
 
-view.mountProgramView(theProgram, content[0]);
-
+//view.mountProgramView(theProgram, content[0]);
+lineView.create(content[0], {}, () => {
+    return [{content: 'hello my name is andrew\nthis should be on line 2\nthis should be on line 3\n\t\t\tthis should be tabbed in3 times'}];
+});
 
 import * as Nearley from './parser/nearley';
 
