@@ -5,12 +5,52 @@ import * as _ from 'underscore';
 export type LineElementContent = string | HTMLElement;
 
 export interface LineElement<T> {
+    id?: string
     content: LineElementContent
     data?: T
     wholeLine?: boolean,
-    lineBreak?: boolean,
     immutable? : boolean,
     classNames?: string
+}
+
+function getDomData(el: HTMLElement) : LineElementDomData {
+    return $(el).data() as LineElementDomData;
+}
+
+function enclosingLine(element: HTMLElement) : HTMLElement {
+    return $(element).closest('.line')[0];
+}
+
+function focusedCharIndexInLine(line: HTMLElement) : number {
+    const focused = $(line).find(':focus')[0];
+    if (focused) {
+        return $(focused).prevAll('.text').toArray().map((i, e) => $(e).text()).join('').length + util.getCaretPosition(focused);
+    }
+}
+
+function focusCharIndexInLine(line: HTMLElement, index: number) {
+    return !$(line).children('.text').toArray().reduce((accum, element) => {
+
+        const length = $(element).text().length;
+        if (index >= accum && index < length) {
+            focusAndStuff(element);
+            util.setCaretPosition(element, index - accum);
+            return false;
+        }
+
+        accum += $(element).text().length;
+        return true;
+    }, 0);
+}
+
+interface LineElementDomData {
+    info: LineElementInfo,
+    data: any
+}
+
+interface LineElementInfo {
+    first: HTMLElement,
+    last: HTMLElement
 }
 
 interface LineView<ElementType> {
@@ -39,74 +79,78 @@ interface LineViewOptions<ElementType> {
 const isEditable = (j: JQuery) => {
     return j && j.length && !!j.attr('contentEditable') && j.text() !== '\n' && j.text() !== '\t';
 }
-const editableSibling = (el, direction) => {
-    return direction < 0 ? util.firstPrev($(el), isEditable) : util.firstNext($(el), isEditable);
+const editableSibling = (el, direction, crossLines = true) : HTMLElement => {
+    let found = direction < 0 ? util.firstPrev($(el), isEditable) : util.firstNext($(el), isEditable);
+    if (!found && crossLines) {
+        const line = enclosingLine(el);
+        const targetLine = $(direction < 0 ? $(line).prev('.line') : $(line).next('.line'));
+        if (targetLine[0]) {
+            const startEnd = direction < 0 ? targetLine.children('.text').last()[0] : targetLine.children('.text').first()[0];
+            return startEnd || editableSibling(startEnd, direction, true);
+        }
+    }
+    return found;
+}
+
+function cleanUp(el: HTMLElement, direction: number) {
+    
+    if (el && el.innerText.length === 0) {
+        const info = getDomData(el).info;
+        if (direction < 0 && info.first === el) {
+            info.first = $(el).next('.text')[0];
+        }
+        else if (direction > 0 && info.last === el) {
+            info.first = $(el).prev('.text')[0];
+        }
+
+        const sibling =  editableSibling(el, direction, false);
+        $(el).remove();        
+        return cleanUp(sibling, direction); 
+    }
+
+    return el;
+}
+
+function focusAndStuff(target: HTMLElement) {
+    $(target).focus();
+    $('.line').removeClass('focused');
+    $(enclosingLine(target)).addClass('focused');
 }
 
 function handleArrow(event: KeyboardEvent, direction: string, element: HTMLElement, position: number, fraction: number) {
     if (direction === 'left' || direction === 'right') {
         let dirNum = direction === 'left' ? -1 : 1;
 
-        if (fraction === 0 && dirNum === -1) {
+        if ((element.innerText.length === 0 || fraction === 0) && dirNum === -1) {
             const prev = editableSibling($(element), -1);
             if (prev) {
-                prev.focus();
+                focusAndStuff(prev);
                 event.preventDefault();
                 util.setCaretPosition(prev, $(prev).text().length - 1);
             }
         }
-        else if (fraction === 1 && dirNum === 1) {
+        else if ((element.innerText.length === 0 || fraction === 1) && dirNum === 1) {
             
             const next = editableSibling($(element), 1);
             if (next) {
-                next.focus();
+                focusAndStuff(next);
                 event.preventDefault();
                 util.setCaretPosition(next, 1);
             }             
         }
     }
     else if (direction === 'up' || direction === 'down') {
-        //debugger;
         event.preventDefault();
         let dirNum = direction === 'down' ? 1 : -1;
 
-        const searchForVerticalSibling = (origin: HTMLElement, direction: number) : {hit?: HTMLElement, xFraction: number} => {
-            const x = util.getCaretOffset(origin).left;                    
-            
-            const findHitEl = (origin: HTMLElement, el: HTMLElement, runCount = 0) : {hit?: HTMLElement, xFraction: number} => {
-
-                if (!el) return null;
-                const elLeft = $(el).offset().left,
-                    elWidth = $(el).outerWidth();
-                
-                if (el !== origin) {
-                    let isHit = elLeft <= x && elLeft + elWidth > x;
-                    if (isHit) {
-                        return {
-                            hit: el,
-                            xFraction: Math.min(1, Math.max(0, (x - elLeft) / elWidth) + 0.1)
-                        };
-                    }
-                }
-
-                if (runCount < 30) {
-                    return findHitEl(
-                        origin, 
-                        editableSibling($(el), direction),
-                        runCount + 1
-                    );
-                }
-
-                return null;
-            };
-
-            return findHitEl(origin, origin);                
-        }
-        
-        const sibling = searchForVerticalSibling(element, dirNum);
-        if (sibling) {
-            $(sibling.hit).focus();
-            util.setCaretFraction(sibling.hit, sibling.xFraction);
+        const line = enclosingLine(element);
+        const focused = focusedCharIndexInLine(line);
+        const sibling = dirNum < 0 ? $(line).prev('.line')[0] : $(line).next('.line')[0];
+        const success = focusCharIndexInLine(sibling, focused);
+        if (!success) {
+            const target = dirNum < 0 ? $(sibling).children('.text').last()[0] : $(sibling).children('.text').first()[0];
+            focusAndStuff(target);
+            util.setCaretFraction(target, dirNum < 0 ? 1 : 0);
         }
     }
 };
@@ -185,6 +229,8 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
 
     }
 
+    
+
     function handleDrag(event: DragEvent, state: DragState) {
         event.preventDefault();
         console.log(charsInAtX(event.offsetX, state.lastHit));
@@ -230,18 +276,27 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
         context().clearRect(0, 0, canvas.width, canvas.height);
     }
 
+    function createLine() {
+        return $('<div>').addClass('line').css({
+            width: '100%',
+            'white-space': 'nowrap',
+            'font-family': 'menlo',
+            'letter-spacing': '-0.05em',
+            'user-select': 'none'
+        });
+    }
+
+    function rectifyLine(el: HTMLElement) {
+        if ($(el).children().length === 0) {
+            $(el).remove();
+        }
+    }
+
     function renderAll() {
         lines = [];
         const elements = elementCallback();
 
-        function createLine() {
-            return $('<div>').addClass('line').css({
-                width: '100%',
-                'white-space': 'nowrap',
-                'font-family': 'menlo',
-                'letter-spacing': '-0.05em'
-            });
-        }
+        
         function thisLine() {
             if (lines.length === 0) startNewLine();
             return $(lines.last());
@@ -253,12 +308,27 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
         }
 
         function textEl(text: string) {
-            return $('<span>').addClass('text').attr('contentEditable', 'true').html(text);
+            return $('<span>').css({
+                'user-select': 'none',
+                'white-space' : 'pre'
+            }).addClass('text').attr('contentEditable', 'true').html(text);
         }
 
         elements.forEach(element => {
+            const elementInfo: LineElementInfo = {
+                first: null,
+                last: null,
+            }
             function common(el: JQuery) {
-                return el.addClass(element.classNames || '').data(element.data || {}).attr('contentEditable', String(element.immutable !== true));
+                if (!elementInfo.first) {
+                    elementInfo.first = el[0];
+                }
+                elementInfo.last = el[0];
+
+                return el.addClass(element.classNames || '').data({
+                    data: element.data,
+                    info: elementInfo
+                }).attr('contentEditable', String(element.immutable !== true));
             }
             if (typeof(element.content) === 'string') {
                 const split = element.content
@@ -279,9 +349,6 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
             else {
                 thisLine().append(common($(element.content)));
             }
-            if (element.lineBreak) {
-                startNewLine();
-            }
         });
 
         $(lineContainer).append(lines);
@@ -293,27 +360,99 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
         currentDrag: null
     }
 
-    wrap.on('keydown' as any, (event: KeyboardEvent) => {
+    function handleKeyDown(event: KeyboardEvent, newTarget?: HTMLElement) {
         const code = event.keyCode;
-        const focused = event.target as HTMLElement;
+        let focused = newTarget || event.target as HTMLElement;
         const pos = util.getCaretPosition(focused);
         const fraction = util.getCaretFraction(focused);
+        const line = enclosingLine(focused);
 
-        // 8 backspace, 46 delete
-        if (fraction === 0 && code === 8) {
-            const prev = editableSibling(event.target, -1);
-            if (prev) {
-                prev.innerText = prev.innerText.substr(-1);
-                prev.focus();
-                util.setCaretFraction(prev, 1);
+        if (code === 9 && $(focused).hasClass('text')) {
+            // tab
+            event.preventDefault();
+            const insert = focused.innerText.length > 0 ? util.getCaretPosition(focused) : 0;
+            focused.innerText = focused.innerText.substr(0, insert) + String.fromCharCode(160, 160) + focused.innerText.substr(insert);
+            util.setCaretPosition(focused, insert + 2);
+            return;
+        }
+
+        if (code === 13 && $(focused).hasClass('text')) {
+            const target = $(focused);
+            if (line) {
+                event.preventDefault();
+                const offset = util.getCaretPosition(target[0]);
+                const [start, end] = [target.text().substr(0, offset), target.text().substr(offset)];
+                const splitB = target.clone(true);
+                target.text(start);
+                splitB.text(end).insertAfter(target);
+                const data = getDomData(focused);
+           
+                if (data.info.last === focused) {
+                    data.info.last = splitB[0];
+                }
+
+                const newLine = createLine();
+                const elements = _.flatten([splitB.toArray(), splitB.nextAll().toArray()]);
+                $(elements).prependTo(newLine);
+                newLine.insertAfter(line);
+                focusAndStuff(splitB.data(data)[0]);
+
+                if (target.text().length === 0 && $(line).children().length > 1) {
+                    target.remove();
+                    rectifyLine(line);
+                }
+                return;
             }
         }
-        else if (fraction === 1 && code === 46) {
-            const next = editableSibling(event.target, 1);
+
+        function moveLineUp(line: HTMLElement) {
+            const previous = $(line).prev('.line')[0];
+            if (previous) {
+                $(line).children().appendTo(previous);
+                $(line).remove();
+                return previous;
+            }            
+        }
+
+        // 8 backspace, 46 delete
+        if ((focused.innerText.length === 0 || fraction === 0) && code === 8) {
+            focused = cleanUp(focused, -1);
+            cleanUp($(focused).prev('.text')[0], -1);
+            const prev = editableSibling(focused, -1, false);
+            
+            if (prev) {
+                prev.innerText = prev.innerText.substr(0, prev.innerText.length - 1);
+                focusAndStuff(prev);
+                util.setCaretFraction(prev, 1);
+            }
+            else {
+                const prev = moveLineUp(line);
+                if (focused) {
+                    focusAndStuff(focused);
+                }
+                else {
+                    focusAndStuff($(prev).children().last()[0]);
+                }
+            }
+        }
+        else if ((focused.innerText.length === 0 || fraction === 1) && code === 46) {
+            focused = cleanUp(focused, 1);
+            cleanUp($(focused).next('.text')[0], 1);
+            const next = editableSibling(focused, 1, false);
+
             if (next) {
                 next.innerText = next.innerText.substr(1);
-                next.focus();
-            }                
+                focusAndStuff(next);
+            }     
+            else {
+                const prev = moveLineUp($(line).next('.line')[0]);
+                if (focused) {
+                    focusAndStuff(focused);
+                }
+                else {
+                    focusAndStuff($(prev).children().last()[0]);
+                }
+            }           
         }
         
         if (code >= 37 && code <= 40) {
@@ -331,10 +470,21 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
             }
             return;
         }
-    }).on('mousedown mousemove mouseup' as any, (event: MouseEvent) => {
+    }
+
+    wrap.on('keydown' as any, handleKeyDown)
+        .on('mousedown mousemove mouseup' as any, (event: MouseEvent) => {
 
         if (event.type === 'mousedown') {
             const line = $(event.target).closest('.line');
+
+            if ($(event.target).hasClass('text')) {
+                focusAndStuff(event.target as HTMLElement)
+            }
+            else {
+                focusAndStuff($(line).find('.text')[0]);
+            }
+
             state.currentDrag = {
                 startLine: line,
                 startCharPos: util.getCaretPosition(event.target as HTMLElement),

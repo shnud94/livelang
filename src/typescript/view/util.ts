@@ -103,7 +103,7 @@ const requiredPosition = (pos * Math.ceil(val(el).length));
 /**
  * http://stackoverflow.com/a/4302688
  */
-export function getCaretPosition(el: HTMLElement) {
+export function getCaretPosition(el: HTMLElement) : number {
     return ($(el) as any).caret('pos');
 }
 
