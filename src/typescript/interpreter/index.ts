@@ -15,7 +15,7 @@ type RunTimeExpression = AST.ExpressionType & {_type: Types.Type}
 interface RunContext {
     typeCheckContext: Checker.TypeCheckContext,
     stack: Stack,
-    resultsPerNode: {[id: string] : RunTimeRepresentation<any>[]}
+    resultsPerNode: {[id: string] : {node: AST.Nodes, results: RunTimeRepresentation<any>[]}}
 }
 
 export function startChildStack(context: RunContext) : Stack {
@@ -85,7 +85,8 @@ export function evaluateExpression(expr: AST.ExpressionType, context: RunContext
 
     const result = getExpressionResult();
     if (expr._id) {
-        context.resultsPerNode[expr._id] = (context.resultsPerNode[expr._id] || []).concat(result);
+        context.resultsPerNode[expr._id] = (context.resultsPerNode[expr._id] || {node: expr, results:[]});
+        context.resultsPerNode[expr._id].results.push(result);
     } 
     return result;    
 }

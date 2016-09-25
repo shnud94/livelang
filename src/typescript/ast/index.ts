@@ -207,3 +207,12 @@ export function createIdentifier(identifier: string, parent?: Nodes) : Identifie
         _parent: parent
     }
 }
+
+export function hasParent(a: Nodes, b: Nodes) {
+    if (!a._parent && !b._parent) return null;
+
+    if (!a._parent) return false;
+    if (a._parent === b) return true;
+
+    return hasParent(a._parent, b); 
+}

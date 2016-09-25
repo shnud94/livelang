@@ -5,7 +5,7 @@ import * as _ from 'underscore';
 export type LineElementContent = string | HTMLElement;
 
 export interface LineElement<T> {
-    id?: string
+    ids?: string[]
     content: LineElementContent
     data?: T
     wholeLine?: boolean,
@@ -14,7 +14,8 @@ export interface LineElement<T> {
 }
 interface LineElementDomData {
     info: LineElementInfo,
-    data: any
+    data: any,
+    ids?: string[]
 }
 
 interface LineElementInfo {
@@ -22,10 +23,19 @@ interface LineElementInfo {
     last: HTMLElement
 }
 
-interface LineView<ElementType> {
+interface DecorationOptions {
+    type: 'lineStart'|'lineEnd'|'below'
+}
+
+type LineView<ElementType> = {
     renderAll()
     getAllText() : string
-
+    getElementsWithId(id: string) : HTMLElement[],
+    lineNumberForId(id: string) : number
+    decorations: {
+        add(decoration: HTMLElement, toId: string, options: DecorationOptions),
+        remove(id: string)
+    }
 }
 interface DragState {
     start: {x: number, y: number}
@@ -86,6 +96,7 @@ function focusCharIndexInLine(line: HTMLElement, index: number) : boolean {
 function isEditable(j: JQuery) {
     return j && j.length && !!j.attr('contentEditable');
 }
+
 function editableSiblingInfo(el, direction, crossLines = true) : {el: HTMLElement, crossedLines: boolean} {
     let found = direction < 0 ? util.firstPrev($(el), isEditable) : util.firstNext($(el), isEditable);
     if (!found && crossLines) {
@@ -212,6 +223,44 @@ function changed<T>(textElement: HTMLElement, previous: string, options: LineVie
 export function create<T>(container: HTMLElement, options: LineViewOptions<T>, elementCallback: () => LineElement<T>[]) : LineView<T> {
     
     const wrap = $('<div>').addClass('line-view').css('position', 'relative');
+    const nodesById: {[id: string]: Set<HTMLElement>} = {};
+    const observer = new MutationObserver(mutations => {
+        mutations.forEach(mut => {
+            Array.prototype.slice.call(mut.addedNodes).forEach(nodeAdded);
+            Array.prototype.slice.call(mut.removedNodes).forEach(nodeRemoved);
+        })
+    });
+    observer.observe(container, {
+        subtree: true,
+        childList: true
+    });
+
+    function nodeAdded(node: HTMLElement) {
+        const data = getDomData(node);
+        if (Array.isArray(data.ids)) {
+            data.ids.forEach(id => {
+                nodesById[id] = nodesById[id] || new Set();
+                nodesById[id].add(node);
+            });
+        }
+        // Call for each child because sometimes we add things to an element before actually inserting it into the DOM,
+        // which stops events from firing for those child nodes
+        $(node).children().each((i, child) => nodeAdded(child as HTMLElement));
+    }
+
+    function nodeRemoved(node: HTMLElement) {
+        const data = getDomData(node);
+        if (Array.isArray(data.ids)) {
+            data.ids.forEach(id => {
+                nodesById[id].delete(node);
+                if (!nodesById[id].size) {
+                    delete nodesById[id];
+                }
+            });                
+        }
+        $(node).children().each((i, child) => nodeRemoved(child as HTMLElement));
+    }
+
     const lineContainer = $('<div>').addClass('lines').appendTo(wrap);
     $(container).append(wrap);
     const canvas = $('<canvas>').appendTo(wrap).css({
@@ -397,7 +446,7 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
                 return el.addClass(lineElement.classNames || '').data({
                     data: lineElement.data,
                     info: elementInfo,
-                    id: lineElement.id
+                    ids: lineElement.ids
                 }).attr('contentEditable', String(lineElement.immutable !== true));
             }
             if (typeof(lineElement.content) === 'string') {
@@ -425,6 +474,7 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
         });
 
         $(lineContainer).append(lines);
+        lines.forEach(nodeAdded);
 
         restoreFocus();
     }
@@ -608,8 +658,40 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
         return getTextInRange($(lineContainer).find('.text').first()[0], $(lineContainer).find('.text').last()[0]);
     }
 
+    function lineNumberForId(id: string) : number | null {
+        const lineWithMost: any[] = _.chain(getElementsWithId(id)).countBy(e => getLineData($(enclosingLine(e))).index).pairs().max(_.last as any).value() as any;
+        return lineWithMost.length === 0 ? null : lineWithMost[0];
+    }
+
+    function getElementsWithId(id: string) : HTMLElement[] {
+        return Array.from(nodesById[id] || new Set());
+    }
+
+    const decorations = {
+        add(decoration: HTMLElement, toId: string, options: DecorationOptions) {
+
+            const elements = getElementsWithId(toId);
+            if (elements.length === 0) return console.warn('No elements found with id');
+
+            if (options.type === 'lineStart' || options.type === 'lineEnd') {
+
+                const line = $(lineContainer).find('.line').get(lineNumberForId(toId));
+                const decorationWrap = $('<div>').addClass(`decoration -${options.type}`).prependTo(line);
+                
+                $(decorationWrap).append(decoration);
+            }
+
+        },
+        remove(id: string) {
+
+        }
+    }
+
     return {
         getAllText,
-        renderAll
-    }   
+        renderAll,
+        getElementsWithId,
+        decorations,
+        lineNumberForId
+    }
 }

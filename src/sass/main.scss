@@ -140,8 +140,22 @@ body {
 
         .line {
             border-bottom: 1px solid $color-grey;
+            position: relative;
             &:focus {
                 border-color: darken($color-grey, 10%);
+            }
+
+            >.decoration.-lineStart {
+                position: absolute;
+                right: calc(100% + 2rem);
+
+                .type {
+                    padding: 0 0.5em;
+                    background: $color-blue;
+                    color: white;
+                    border-radius: 9px;
+                    margin: 0 .5em;
+                }
             }
         }
     }

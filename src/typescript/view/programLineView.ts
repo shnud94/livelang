@@ -5,6 +5,8 @@ import * as LineView from './lineView';
 import * as index from './index';
 import * as parser from '../parser/custom';
 import * as interpreter from '../interpreter/index';
+import * as checker from '../types/checker';
+import * as _ from 'underscore';
 
 interface ProgramLineElementData {
     controller: index.NodeTextController
@@ -35,7 +37,53 @@ export function create(program: AST.Nodes, container: HTMLElement) {
                     if (!module) debugger;
                     else {
                         const contextAfterRun = interpreter.evaluateModule(module);
-                        console.log(contextAfterRun);
+
+                        if (contextAfterRun) {
+                            const {resultsPerNode} = contextAfterRun;
+
+                            type id = string;
+                            const idsByLine: {[line: number] : id[]} = {};
+
+                            // get all results per line
+                            _.keys(resultsPerNode).forEach(key => {
+                                const {results, node} = resultsPerNode[key];
+                                const lineNumber = lineView.lineNumberForId(key);
+
+                                if (lineNumber != null) {
+                                    idsByLine[lineNumber] = (idsByLine[lineNumber] || []).concat([node._id]);
+                                }         
+                            });
+
+                            // get the one we should show for that line
+                            const forEachLine = _.keys(idsByLine).reduce((accum, lineNumber) => {
+
+                                const line = parseInt(lineNumber);
+                                const ids = idsByLine[line];
+                                if (ids.length === 1) return ids[0];
+
+                                const highest = ids.sort((a, b) => {
+                                    const [nodeA, nodeB] = [resultsPerNode[a].node, resultsPerNode[b].node];
+                                    return AST.hasParent(nodeA, nodeB) ? 1 : -1;
+                                })[0];
+
+                                // console.log(`highest for ${lineNumber}: ${highest}`);
+                                accum[lineNumber] = highest;
+
+                                const node = resultsPerNode[highest].node;
+                                const result = $('<span>').addClass('result').text(resultsPerNode[highest].results.last().stringValue())[0];
+                                const type = $('<span>').addClass('type').text(node._runtime.type.identifier);
+        
+                                lineView.decorations.add(
+                                    $('<div>').append(type, result)[0], 
+                                    highest, 
+                                    {type: 'lineStart'}
+                                );
+
+                                return accum;
+                            }, {});
+
+                            console.log(forEachLine);
+                        }
                     }
                 }
             }  
@@ -59,11 +107,16 @@ const elementsFromController = (controller: index.NodeTextController) : ElementT
 
     result.renderables.forEach(renderable => {
         if (typeof(renderable.component) === 'string') {
-            parts.push({content: renderable.component, data, id: controller.node._id});
+            parts.push({content: renderable.component, data, ids: [controller.node._id]});
         }
         else {
             // Must be a node
-            parts = parts.concat(elementsFromController(NodeController.basicController(renderable.component as AST.Nodes, controller)));
+
+            const nodeParts = elementsFromController(NodeController.basicController(renderable.component as AST.Nodes, controller));
+            parts = parts.concat(nodeParts.map(part => {
+                part.ids.push(controller.node._id); // Add the parent id as well
+                return part;
+            }));
         }
     });
 
