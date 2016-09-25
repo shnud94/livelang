@@ -26,6 +26,10 @@
     "electron-prebuilt": "^1.2.0"
   },
   "dependencies": {
+    "@types/jquery": "^2.0.32",
+    "@types/react": "^0.14.37",
+    "@types/react-dom": "^0.14.17",
+    "@types/underscore": "^1.7.33",
     "debug": "^2.2.0",
     "electron-connect": "^0.4.2",
     "eval": "^0.1.1",
@@ -42,10 +46,10 @@
     "jquery.caret": "^0.3.1",
     "merge2": "^1.0.2",
     "nearley": "^2.7.3",
-    "react": "^15.2.1",
-    "react-dom": "^15.2.1",
+    "react": "^15.3.2",
+    "react-dom": "^15.3.2",
     "sync-promise": "^1.0.1",
-    "typescript": "^2.0.2",
+    "typescript": "^2.0.3",
     "underscore": "^1.8.3"
   }
 }

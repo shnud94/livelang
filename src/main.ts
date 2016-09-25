@@ -25,7 +25,7 @@ function createWindow () {
     mainWindow = null
   })
 
-  BrowserWindow.addDevToolsExtension('/Users/shnud/Library/Application Support/Google/Chrome/Default/Extensions/dbhhnnnpaeobfddmlalhnehgclcmjimi/0.1.3.2_0');
+  //BrowserWindow.addDevToolsExtension('/Users/shnud/Library/Application Support/Google/Chrome/Default/Extensions/dbhhnnnpaeobfddmlalhnehgclcmjimi/0.1.3.2_0');
 
   require('electron-connect').client.create(mainWindow);
 }

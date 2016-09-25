@@ -1,6 +1,7 @@
 import * as Types from '../../types/index';
 import * as AST from '../../ast/index';
 import {BuiltInTypes as builtIn} from '../../types/builtin';
+import * as _ from 'underscore';
 
 export type RunTimeFunction = (args: RunTimeRepresentation<any>[]) => RunTimeRepresentation<any>;
 export interface RunTimeRepresentation<T extends Types.Type> {

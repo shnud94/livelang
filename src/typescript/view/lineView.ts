@@ -231,8 +231,7 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
 
     function textInLine(line: HTMLElement) {
         return $(line).children('.text').toArray()
-            .reduce((accum, cur) => accum + cur, '')
-            .join('');
+            .reduce((accum, cur) => accum + cur, '');
     }
 
     function getTextWidth(text, style: Object) {
