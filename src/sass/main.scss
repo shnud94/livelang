@@ -1,5 +1,5 @@
 $color-blue: #03a9f4;
-$color-grey: #CCC;
+$color-grey: #EEE;
 $spacing-standard: 1rem;
 
 body {
@@ -37,6 +37,7 @@ body {
     border: 1px solid #EEE;
     flex-grow: 1;
     overflow: auto;
+    position: relative;
 }
 
 .scopeNode {
@@ -110,12 +111,19 @@ body {
         width: 25%;
         min-height: 100%;
         overflow-y: scroll;
-
         font-family: 'menlo', monospace;
     }
 }
 
 .line-view {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: $color-grey;
+    min-height: 100%;
+    overflow-y: scroll;
     span.text {
         &, &:focus, &:active, &:hover {
             border: 1px solid transparent;
@@ -123,7 +131,17 @@ body {
         }
     }
 
-    .line.focused {
-        box-shadow: inset 0 0 0 2px $color-blue; 
+    >.lines {
+        background: white;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: $spacing-standard;
+
+        .line {
+            border-bottom: 1px solid $color-grey;
+            &:focus {
+                border-color: darken($color-grey, 10%);
+            }
+        }
     }
 }

@@ -1,12 +1,12 @@
 import './prototype/index';
 import * as program from './program';
-import * as view from './view/programView';
 import * as util from './view/util';
 import {remote} from 'electron';
 import * as fs from 'fs';
 import * as types from './types/index';
 import * as settings from './settings/index';
 import * as lineView from './view/lineView';
+import * as programLineView from './view/programLineView';
 const dialog = remote.dialog;
 
 function loadFromPath(path: string) {
@@ -55,13 +55,11 @@ buttons.append($('<button>').text('Load').click(() => {
 }));
 
 buttons.append($('<button>').text('Render All').click(() => {
-    view.mountProgramView(theProgram, content[0]);
+    view.lineView.renderAll();
 }));
 
 //view.mountProgramView(theProgram, content[0]);
-lineView.create(content[0], {}, () => {
-    return [{content: 'hello my name is andrew\nthis should be on line 2\nthis should be on line 3\n\t\t\tthis should be tabbed in3 times'}];
-});
+const view = programLineView.create(theProgram.data, content[0]);
 
 import * as Nearley from './parser/nearley';
 
