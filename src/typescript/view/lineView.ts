@@ -383,7 +383,7 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
             }).addClass('text').attr('contentEditable', 'true').html(text);
         }
 
-        elements.forEach(element => {
+        elements.forEach(lineElement => {
             const elementInfo: LineElementInfo = {
                 first: null,
                 last: null,
@@ -394,13 +394,14 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
                 }
                 elementInfo.last = el[0];
 
-                return el.addClass(element.classNames || '').data({
-                    data: element.data,
-                    info: elementInfo
-                }).attr('contentEditable', String(element.immutable !== true));
+                return el.addClass(lineElement.classNames || '').data({
+                    data: lineElement.data,
+                    info: elementInfo,
+                    id: lineElement.id
+                }).attr('contentEditable', String(lineElement.immutable !== true));
             }
-            if (typeof(element.content) === 'string') {
-                let split = element.content
+            if (typeof(lineElement.content) === 'string') {
+                let split = lineElement.content
                     .replace(/\t/g, '&nbsp;&nbsp;')
                     .replace(/ /g, '&nbsp;');
 
@@ -419,7 +420,7 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
                 }   
             }
             else {
-                thisLine().append(common($(element.content)));
+                thisLine().append(common($(lineElement.content)));
             }
         });
 
@@ -435,7 +436,12 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
     }
 
     function handleKeyDown(event: KeyboardEvent, newTarget?: HTMLElement) {
+
         const code = event.keyCode;
+
+        // Quick fix for higher ups listening to these two keys, don't wanna do anything here
+        if (code === 13 && event.ctrlKey) return;
+
         let focused = newTarget || event.target as HTMLElement;
         const pos = util.getCaretPosition(focused);
         const fraction = util.getCaretFraction(focused);

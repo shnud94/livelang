@@ -14,8 +14,15 @@ export function create(program: AST.Nodes, container: HTMLElement) {
 
     const rootController = NodeController.basicController(program, null);
     const lineView = LineView.create(container, {
-        onElementChange(value, previous, data) {
-            
+        onElementChange(value, previous, data) {}
+    }, () => elementsFromController(rootController))
+
+    $(container).keyup(event => {
+        if (!event.ctrlKey || event.keyCode !== 13) {
+            return;
+        }
+        else {
+            event.preventDefault();
             const text = lineView.getAllText();
             const wholeParseResult = parser.parseSpecCached(rootController.description, lineView.getAllText(), rootController.description.id);
 
@@ -31,9 +38,9 @@ export function create(program: AST.Nodes, container: HTMLElement) {
                         console.log(contextAfterRun);
                     }
                 }
-            }            
+            }  
         }
-    }, () => elementsFromController(rootController))
+    })
 
     return {
         lineView
@@ -52,7 +59,7 @@ const elementsFromController = (controller: index.NodeTextController) : ElementT
 
     result.renderables.forEach(renderable => {
         if (typeof(renderable.component) === 'string') {
-            parts.push({content: renderable.component, data});
+            parts.push({content: renderable.component, data, id: controller.node._id});
         }
         else {
             // Must be a node

@@ -198,7 +198,7 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
             }
         }
         else if (direction === 'up' || direction === 'down') {
-            //debugger;
+
             event.preventDefault();
             let dirNum = direction === 'down' ? 1 : -1;
 
@@ -244,6 +244,7 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
     };
 
     const keyup = _.debounce((event: KeyboardEvent) => {
+        
         const $target = $(event.target);
         const data = $target.data() as DOMData;
         const value = $target.text();
@@ -254,25 +255,27 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
         let controller = data.nodeTextState;
         
         while (controller) {
-            const controllerNodeRange = getControllerNodeRange(controller);            
-            const textInRange = util.textInNodeRange(controllerNodeRange[0], controllerNodeRange.last());
-            const wholeParseResult = parser.parseSpecCached(controller.description, textInRange.trim(), controller.description.id);
-            results.push(wholeParseResult);
+            if (!controller.description.denyReparse) {
+                const controllerNodeRange = getControllerNodeRange(controller);            
+                const textInRange = util.textInNodeRange(controllerNodeRange[0], controllerNodeRange.last());
+                const wholeParseResult = parser.parseSpecCached(controller.description, textInRange.trim(), controller.description.id);
+                results.push(wholeParseResult);
 
-            if (wholeParseResult.result) {
+                if (wholeParseResult.result) {
 
-                const changeResult = controller.handleComponentChange(wholeParseResult.result, textInRange);
-                if (changeResult.success) {
-                    renderControllerRange(controller, controllerNodeRange, event.target as HTMLElement);
-                    
-                    const module = ASTUtil.nearestModule(controller.node);
-                    if (!module) debugger;
-                    else {
-                        const contextAfterRun = interpreter.evaluateModule(module);
-                        console.log(contextAfterRun);
+                    const changeResult = controller.handleComponentChange(wholeParseResult.result, textInRange);
+                    if (changeResult.success) {
+                        renderControllerRange(controller, controllerNodeRange, event.target as HTMLElement);
+                        
+                        const module = ASTUtil.nearestModule(controller.node);
+                        if (!module) debugger;
+                        else {
+                            const contextAfterRun = interpreter.evaluateModule(module);
+                            console.log(contextAfterRun);
+                        }
+            
+                        return;
                     }
-        
-                    return;
                 }
             }
 
