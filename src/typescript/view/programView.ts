@@ -30,7 +30,7 @@ export const mountProgramView = (program: Program, dom: HTMLElement) => {
     
     $(dom).empty();
     const container = $('<div>').addClass('code').appendTo(dom);
-    const rootController = basicController(program.data);
+    const rootController = basicController(program.modules[0]);
 
     const layoutAll = () => {
         layoutRange(container.children()[0] as HTMLElement, container.children().last()[0] as HTMLElement);

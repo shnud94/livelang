@@ -15,9 +15,10 @@ export function createNode(node: any) : any {
 let openPrograms: {[key: string] : Program} = {};
 export class Program {
 
-    data: AST.ModuleNode;
+    modules: AST.ModuleNode[] = []
+    
     constructor() {
-        this.data = createNode({
+        this.modules.push(createNode({
             children: [
 
                 createNode({
@@ -51,9 +52,11 @@ export class Program {
             type: 'module',
             _parent: null ,
             version: '0.0.1'
-        });
-        reviveNode(this.data, null);
-        openPrograms[this.data._id] = this;
+        }));
+        
+        // TODO: Look into this and its consequences
+        reviveNode(this.modules[0], null);
+        openPrograms[this.modules[0]._id] = this;
     }
 
     static programFromNode(node: AST.CodeNode) : Program {
@@ -65,7 +68,7 @@ export class Program {
 }
 
 export function programToJSON(program: Program) : string {
-    return JSON.stringify(program.data, (key, val) => {
+    return JSON.stringify(_.pick(program, 'modules'), (key, val) => {
         if (key.startsWith('_')) return undefined;
         return val;
     }, 2);
@@ -102,8 +105,8 @@ export const reviveChildren = (object: AST.CodeNode) => {
 export function programFromJSON(json: string) : Program {
     const program = new Program();
     const parsed = JSON.parse(json);
-    reviveNode(parsed);
-    program.data = parsed;
+    parsed.modules.forEach(reviveNode);
+    program.modules = parsed.modules;
     return program;
 } 
 

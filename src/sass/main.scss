@@ -1,5 +1,6 @@
 $color-blue: #03a9f4;
 $color-grey: #EEE;
+$color-grey-dark: #555;
 $spacing-standard: 1rem;
 
 body {
@@ -23,6 +24,61 @@ body {
     overflow:hidden;
 }
 
+.horizontal {
+    display: flex;
+    flex-grow: 1;
+}
+
+.sidebar {
+    min-width: 300px;
+    background: $color-grey-dark;
+}
+
+.moduleView {
+    .module {
+        >.children .module {
+            padding-left: 25px;
+        }
+
+        cursor: pointer;
+        >.flex {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            >* {
+                margin: $spacing-standard / 4 $spacing-standard;
+            }
+            >.spacer {
+                flex-grow: 1;
+                flex-shrink: 1;
+            }
+        }
+        &.-current {
+            background: $color-blue;
+            color: white;
+        }
+        background: $color-grey-dark;
+        color: white;
+
+        .fa {
+            font-size: 16px;
+            background: black;
+            border-radius: 100%;
+            &, &:before {
+                height: 1.5em;
+                width: 1.5em;
+                text-align: center;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            &:hover {
+                background: darken($color-grey, 20%);
+            }
+        }
+    }
+}
+
 .buttons {
     background: #EEE;
     display: flex;
@@ -33,7 +89,6 @@ body {
 }
 
 .content {
-    padding: $spacing-standard;
     border: 1px solid #EEE;
     flex-grow: 1;
     overflow: auto;
@@ -121,7 +176,7 @@ body {
     left: 0;
     right: 0;
     bottom: 0;
-    background: $color-grey;
+    background: $color-grey-dark;
     min-height: 100%;
     overflow-y: scroll;
     span.text {

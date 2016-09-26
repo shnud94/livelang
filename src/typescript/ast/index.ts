@@ -189,6 +189,15 @@ export function createProgram() : ModuleNode {
     } as ModuleNode;
 }
 
+export function createModule(identifier: string, parent?: Nodes) : ModuleNode {
+    return {
+        type: 'module',
+        children: [],
+        identifier: createIdentifier(identifier),
+        _parent: parent,
+        version: '1.0'
+    }
+}
 
 export function createArrayLiteral(values: ExpressionType[], parent?: Nodes) : ArrayLiteralNode {
     let arrayLiteral: ArrayLiteralNode = {
