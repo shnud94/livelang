@@ -129,8 +129,18 @@ export const uint32Rep = (val?: number) => {
 export const arrayRep = () => {
     let rep = {
         rawValue: [],
-        stringValue : () => rep.rawValue.toString(),
+        stringValue : () => '[' + rep.rawValue.map(v => v.rawValue).join(', ') + ']',
         set(val: Array<any>) {rep.rawValue = val},
+        clone: () => _.extend({}, rep)
+    }
+    return rep;    
+}
+
+export const mapRep = () => {
+    let rep = {
+        rawValue: {},
+        stringValue : () => JSON.stringify(rep.rawValue),
+        set(key: string, value: any) {rep.rawValue[key] = value},
         clone: () => _.extend({}, rep)
     }
     return rep;    

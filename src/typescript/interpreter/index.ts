@@ -59,9 +59,17 @@ export function evaluateExpression(expr: AST.ExpressionType, context: RunContext
                 return raw;
             }
         }
+        else if (expr.type === 'expressionmapLiteral') {
+            const rep = reps.mapRep();
+            Object.keys(expr.value).forEach(key => {
+                const val = expr.value[key] as AST.ExpressionType;
+                rep.set(key, evaluateExpression(val, context));
+            });
+            return rep;
+        }
         else if (expr.type === 'expressionarrayLiteral') {
             const raw = reps.arrayRep();
-            raw.set(expr.value.map(val => evaluateExpression(expr, context)));
+            raw.set(expr.value.map(val => evaluateExpression(val, context)));
             return raw;
         }
         else if (expr.type === 'expressioncallableLiteral') {

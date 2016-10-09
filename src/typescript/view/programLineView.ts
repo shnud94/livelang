@@ -6,6 +6,7 @@ import * as index from './index';
 import * as parser from '../parser/custom';
 import * as interpreter from '../interpreter/index';
 import * as checker from '../types/checker';
+import * as types from '../types/index';
 import * as _ from 'underscore';
 
 interface ProgramLineElementData {
@@ -84,19 +85,23 @@ export function create(program: AST.Nodes, container: HTMLElement) {
 
                                 const line = parseInt(lineNumber);
                                 const ids = idsByLine[line];
-                                if (ids.length === 1) return ids[0];
+                                if (ids.length === 1) {
+                                    accum[lineNumber] = ids[0];
+                                }
+                                else {
+                                    const highest = ids.sort((a, b) => {
+                                        const [nodeA, nodeB] = [resultsPerNode[a].node, resultsPerNode[b].node];
+                                        return AST.hasParent(nodeA, nodeB) ? 1 : -1;
+                                    })[0];
 
-                                const highest = ids.sort((a, b) => {
-                                    const [nodeA, nodeB] = [resultsPerNode[a].node, resultsPerNode[b].node];
-                                    return AST.hasParent(nodeA, nodeB) ? 1 : -1;
-                                })[0];
+                                    // console.log(`highest for ${lineNumber}: ${highest}`);
+                                    accum[lineNumber] = highest;
+                                }
 
-                                // console.log(`highest for ${lineNumber}: ${highest}`);
-                                accum[lineNumber] = highest;
-
+                                const highest = accum[lineNumber];
                                 const node = resultsPerNode[highest].node;
                                 const result = $('<span>').addClass('result').text(resultsPerNode[highest].results.last().stringValue())[0];
-                                const type = $('<span>').addClass('type').text(node._runtime.type.identifier);
+                                const type = $('<span>').addClass('type').text(types.typeToString(node._runtime.type));
         
                                 lineView.decorations.add(
                                     $('<div>').append(type, result)[0], 

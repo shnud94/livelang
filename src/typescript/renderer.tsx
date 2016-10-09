@@ -68,7 +68,7 @@ buttons.append($('<button>').text('Render All').click(() => {
 }));
 
 //view.mountProgramView(theProgram, content[0]);
-const view = programLineView.create(theProgram.modules[0], content[0]);
+let view = programLineView.create(theProgram.modules[0], content[0]);
 function moduleClicked(module: AST.ModuleNode) {
     ReactDOM.render(<ModuleView modules={theProgram.modules} moduleClicked={moduleClicked} currentModule={module} />, sidebar[0]);
 }

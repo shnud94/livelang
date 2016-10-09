@@ -106,3 +106,33 @@ export function createCallableType<I extends Type, O extends Type>(input: I, out
     };
 }
 
+export function typeToString(type: Type) : string {
+
+    if (type.type === 'function') {
+        const func = type as FunctionType;
+        return `(${typeToString(func.input)}) -> ${typeToString(func.output)}` 
+    }
+    else if (type.type === 'or') {
+        const orType = type as OrType;
+        return orType.choices.map(typeToString).join(' | ');
+    }
+    else if (type.type === 'and') {
+        const andType = type as AndType;
+        return andType.choices.map(typeToString).join(' & ');
+    }
+    else if (type.type === 'array') {
+        const array = type as ArrayType;
+
+        if (Array.isArray(array.elementType)) {
+            return `[${array.elementType.map(typeToString).join(', ')}]`;
+        }
+        else {
+            return `[${array.elementType}]`;
+        }
+    }
+    else if (type.type === 'map') {
+        
+    }
+    
+    return type.identifier || type.type || 'unknown';
+}

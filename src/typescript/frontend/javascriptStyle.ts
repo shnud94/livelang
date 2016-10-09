@@ -341,20 +341,41 @@ export const memberAccessExpression: NodeTextDescription<AST.MemberAccessExpress
         }
 
         prev.subject = assignParent(flat(components[0]) as AST.ExpressionType, prev);
-        prev.member = assignParent(flat(components[2]) as AST.Identifier, prev);
+
+        const member = flat(components)[2] as AST.Nodes;
+        if (member.type === 'expressionidentifier') {
+            prev.member = AST.createStringLiteral(member.value, prev);
+        }
+        else {
+            prev.member = assignParent(member as AST.ExpressionType, prev);
+        }
 
         return prev;
     },
     getTextSpecs: () => ([
         expression,
-        '\.',
-        identifier     
+        {or: [
+            {all: ['\.', identifier]}, 
+            {all: ['[', expression, ']']}
+        ]}
     ]),
-    componentsFromValue: node => [
-        node.subject,
-        '.',
-        node.member
-    ]
+    componentsFromValue: node => {
+        if (node.member.type === 'expressionstringLiteral') {
+            return [
+                node.subject,
+                '.',
+                node.member.type === 'expressionstringLiteral' ? node.member.value : node.member
+            ]
+        }
+        else {
+            return [
+                node.subject,
+                '[',
+                node.member,
+                ']'
+            ]
+        }        
+    }
 }
 
 export const callableLiteral: NodeTextDescription<AST.CallableLiteral> = {

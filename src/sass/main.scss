@@ -191,7 +191,8 @@ body {
         position: relative;
         background: white;
         margin: 0 auto;
-        margin-left: 250px;
+        margin-right: 0;
+        max-width: 50em;
         padding: $spacing-standard;
 
         .line {

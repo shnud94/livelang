@@ -199,6 +199,24 @@ export function createModule(identifier: string, parent?: Nodes) : ModuleNode {
     }
 }
 
+export function createStringLiteral(string: string, parent?: Nodes) : StringLiteralNode {
+    let stringLiteralNode: StringLiteralNode = {
+        type: 'expressionstringLiteral',
+        value: string,
+        _parent: parent    
+    }
+    return stringLiteralNode;
+}
+
+export function createNumericLiteral(value: number, parent?: Nodes) : NumericLiteralNode {
+    let node: NumericLiteralNode = {
+        type: 'expressionnumericLiteral',
+        value: value,
+        _parent: parent    
+    }
+    return node;
+}
+
 export function createArrayLiteral(values: ExpressionType[], parent?: Nodes) : ArrayLiteralNode {
     let arrayLiteral: ArrayLiteralNode = {
         type: 'expressionarrayLiteral',
