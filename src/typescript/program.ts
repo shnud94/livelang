@@ -15,7 +15,7 @@ export function createNode(node: any) : any {
 let openPrograms: {[key: string] : Program} = {};
 export class Program {
 
-    modules: AST.ModuleNode[] = []
+    modules: AST.ModuleNode[] = [];
     
     constructor() {
         this.modules.push(createNode({

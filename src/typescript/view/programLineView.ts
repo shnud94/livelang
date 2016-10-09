@@ -37,7 +37,32 @@ export function create(program: AST.Nodes, container: HTMLElement) {
                     if (!module) debugger;
                     else {
                         const contextAfterRun = interpreter.evaluateModule(module);
+                        const {typeCheckContext} = contextAfterRun;
 
+                        // Show errors
+                        typeCheckContext.errors.forEach(error => {
+                            if (error.kind === 'typeError') {
+                                
+                                error.nodes.forEach(node => {
+                                    const $el = $('<div>').text(error.value);
+                                    lineView.decorations.addClassDecoration('-error', node._id);
+                                    lineView.decorations.addHoverDecoration($el[0], node._id);
+                                })
+                            }
+                        });
+
+                        typeCheckContext.warnings.forEach(warning => {
+                            if (warning.kind === 'typeError') {
+                                
+                                warning.nodes.forEach(node => {
+                                    const $el = $('<div>').text(warning.value);
+                                    lineView.decorations.addClassDecoration('-warning', node._id);
+                                    lineView.decorations.addHoverDecoration($el[0], node._id);
+                                })
+                            }
+                        });
+
+                        // Show results
                         if (contextAfterRun) {
                             const {resultsPerNode} = contextAfterRun;
 

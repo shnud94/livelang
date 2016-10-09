@@ -34,6 +34,9 @@ type LineView<ElementType> = {
     lineNumberForId(id: string) : number
     decorations: {
         add(decoration: HTMLElement, toId: string, options: DecorationOptions),
+        addHoverDecoration(decoration: HTMLElement, toId: string),
+        addCSSDecoration(css: CSSStyleDeclaration, toId: string),
+        addClassDecoration(clazz: string, toId: string)
         remove(id: string)
     }
 }
@@ -428,7 +431,9 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
         function textEl(text: string) {
             return $('<span>').css({
                 'user-select': 'none',
-                'white-space' : 'pre'
+                'white-space' : 'pre',
+                'display': 'inline-block',
+                'position': 'relative'
             }).addClass('text').attr('contentEditable', 'true').html(text);
         }
 
@@ -631,7 +636,9 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
                 focusAndStuff(event.target as HTMLElement)
             }
             else {
-                focusAndStuff($(line).find('.text')[0]);
+                const toFocus = $(line).find('.text').last()[0];
+                focusAndStuff(toFocus);
+                util.setCaretFraction(toFocus, 1);
             }
 
             state.currentDrag = {
@@ -668,6 +675,27 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
     }
 
     const decorations = {
+        addClassDecoration(clazz: string, toId: string) {
+            getElementsWithId(toId).forEach(element => {
+                $(element).addClass(clazz);
+            });           
+        },
+        addCSSDecoration(decoration: CSSStyleDeclaration, toId: string) {
+            getElementsWithId(toId).forEach(element => {
+                $(element).css(decoration);
+            });           
+        },
+        addHoverDecoration(decoration: HTMLElement, toId: string) {
+
+            getElementsWithId(toId).forEach(element => {
+                let hoverDec = $(element).find('.decoration.-hover');
+                if (!hoverDec.length) {
+                    hoverDec = $('<span>').addClass('decoration -hover');
+                    $(element).append(hoverDec);
+                }
+                hoverDec.append($(decoration).clone());                
+            });           
+        },
         add(decoration: HTMLElement, toId: string, options: DecorationOptions) {
 
             const elements = getElementsWithId(toId);
@@ -679,6 +707,11 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
                 const decorationWrap = $('<div>').addClass(`decoration -${options.type}`).prependTo(line);
                 
                 $(decorationWrap).append(decoration);
+            }
+            else if (options.type === 'below') {
+                getElementsWithId(toId).forEach(element => {
+                    $(element).append(decoration);
+                });
             }
 
         },

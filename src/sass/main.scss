@@ -1,4 +1,6 @@
 $color-blue: #03a9f4;
+$color-yellow: #f9e604;
+$color-red: #f90004;
 $color-grey: #EEE;
 $color-grey-dark: #555;
 $spacing-standard: 1rem;
@@ -9,7 +11,6 @@ body {
     box-sizing: border-box;
     margin: 0;
 }
-
 
 * {
     font-size: inherit;
@@ -189,8 +190,8 @@ body {
     >.lines {
         position: relative;
         background: white;
-        max-width: 800px;
         margin: 0 auto;
+        margin-left: 250px;
         padding: $spacing-standard;
 
         .line {
@@ -198,6 +199,26 @@ body {
             position: relative;
             &:focus {
                 border-color: darken($color-grey, 10%);
+            }
+
+            .text.-warning {
+                border-bottom: 1px solid $color-yellow;
+            }
+            .text.-error {
+                border-bottom: 1px solid $color-red;
+            }
+            .text:hover >.decoration.-hover {
+                display: block;
+            }
+            .text >.decoration.-hover {
+                display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                background: $color-grey;
+                z-index: 2;
+                border-bottom: 2px solid #CCC;
+                padding: $spacing-standard/3 $spacing-standard/2;
             }
 
             >.decoration.-lineStart {

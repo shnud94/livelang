@@ -142,18 +142,18 @@ export function evaluateBody(node: AST.ModuleChild[], context: RunContext) : Run
 
 export function evaluateModule(mod: AST.ModuleNode) : RunContext {
 
-    const typeCheck = Checker.typeCheckModule(mod);
+    const typeCheckContext = Checker.typeCheckModule(mod);
 
-    typeCheck.errors.map(error => console.error(error));
-    typeCheck.warnings.map(error => console.warn(error));
+    typeCheckContext.errors.map(error => console.error(error));
+    typeCheckContext.warnings.map(error => console.warn(error));
 
-    if (typeCheck.errors.length > 0) {
+    if (typeCheckContext.errors.length > 0) {
         log('Type checker found errors, not running');        
-        return;
+        return {typeCheckContext, stack: null, resultsPerNode: null};
     }    
 
     const context: RunContext = {
-        typeCheckContext: typeCheck,
+        typeCheckContext: typeCheckContext,
         stack: {
              declared: {},
              parent: null 
