@@ -507,10 +507,15 @@ export const binaryExpression: NodeTextDescription<AST.CallExpressionNode> = (()
                 })
             }
 
-            const [lhs, rhs] = [flat(components)[0] as any, flat(components)[4] as any];
-            prev.target = AST.createIdentifier(flat(components)[2], prev);
+            const noWhiteSpace = flat(components).filter(c => !(typeof(c) === 'string' && c.trim().length === 0));
+            const [lhs, rhs] = [noWhiteSpace[0], noWhiteSpace[2]];
+            prev.target = AST.createIdentifier(noWhiteSpace[1], prev);
             if (lhs && rhs) {
                 prev.input = AST.createArrayLiteral([lhs, rhs], prev);
+            }
+            else {
+                console.warn('No lhs/rhs');
+                debugger;
             }
 
             return prev;
