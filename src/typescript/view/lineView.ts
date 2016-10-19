@@ -79,14 +79,14 @@ function focusCharIndexInLine(line: HTMLElement, index: number) : boolean {
     let accum = 0;
     const success = !$(line).children('.text').toArray().every((element) => {
 
-        const length = $(element).text().length;
+        const length = textOfText(element).length;
         if (index >= accum && index < accum + length) {
             focusAndStuff(element);
             util.setCaretPosition(element, index - accum);
             return false;
         }
 
-        accum += $(element).text().length;
+        accum += textOfText(element).length;
         return true;
     }, 0);
 
@@ -195,8 +195,16 @@ function handleArrow(event: KeyboardEvent, direction: string, element: HTMLEleme
     }
 };
 
+function textOfText(el: HTMLElement) {
+    return $(el.firstChild).text();
+}
+
+function setTextOfText(el: HTMLElement, text: string) {
+    return $(el.firstChild).text(text);
+}
+
 function getTextInRange(start: HTMLElement, end: HTMLElement) : string {
-    if (start === end) return start.innerText;
+    if (start === end) return textOfText(start);
 
     const array = [start.innerText];
     function next(el: HTMLElement) : HTMLElement {
@@ -209,7 +217,7 @@ function getTextInRange(start: HTMLElement, end: HTMLElement) : string {
     let theNext = start;
     do {
         theNext = next(theNext);
-        array.push(theNext.innerText);
+        array.push(textOfText(theNext));
     } while (theNext && theNext !== end)
 
     return array.join('');
@@ -527,7 +535,7 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
             if (line) {
                 event.preventDefault();
                 const offset = util.getCaretPosition(target[0]);
-                const [start, end] = [target.text().substr(0, offset), target.text().substr(offset)];
+                const [start, end] = [textOfText(target[0]).substr(0, offset), textOfText(target[0]).substr(offset)];
                 const splitB = target.clone(true);
                 target.text(start);
                 splitB.text(end).insertAfter(target);
@@ -543,7 +551,7 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
                 newLine.insertAfter(line);
                 focusAndStuff(splitB.data(data)[0]);
 
-                if (target.text().length === 0 && $(line).children().length > 1) {
+                if (textOfText(target[0]).length === 0 && $(line).children().length > 1) {
                     target.remove();
                     rectifyLine(line);
                 }
