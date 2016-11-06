@@ -36,23 +36,59 @@ type Scope = {
  * With some declarations, such as functions, it is valid to have multiple declarations with the same identifier. These are distinguised
  * by their type parameters. This should probably only really be used for that purpose
  */
-function resolveMultipleDeclarationsByIdentifier(identifier: string, scope: Scope) : AST.DeclarationNode[] {
+export function resolveMultipleDeclarationsByIdentifier(identifier: string, scope: Scope) : AST.DeclarationNode[] {
     if (!scope) return null;        
     if (scope.declarationsByIdentifier[identifier]) return scope.declarationsByIdentifier[identifier];
     return resolveMultipleDeclarationsByIdentifier(identifier, scope.parent);
 }
 
-function resolveDeclarationByIdentifier(identifier: string, scope: Scope) : AST.DeclarationNode {
+export function resolveDeclarationByIdentifier(identifier: string, scope: Scope) : AST.DeclarationNode {
     const all = resolveMultipleDeclarationsByIdentifier(identifier, scope);
     if (all && all.length > 0) return all[0];
     return null;
 }
 
-// function convertOperatorsToDeclarations(stringsNTypes: {[key: string] : Type}) : {[key: string] : DeclarationInfo} {
-//     return util.mapObj(stringsNTypes, (key, value) => {
-//         return [key, {type: value, declaration: null}];
-//     });
-// }
+export function getDeclarationSources(declaration: AST.DeclarationNode, scope: Scope, context: TypeCheckContext) : AST.DeclarationNode[] {
+    if (declaration.valueExpression.type === 'expressionidentifier') {
+        const identifier = declaration.valueExpression.value;
+        const decs = resolveMultipleDeclarationsByIdentifier(identifier, scope);
+        return _.flatten(decs.map(dec => getDeclarationSources(declaration, scope, context)));
+    }
+    return [declaration];
+}
+
+export function findMatchingFunction(identifier: string, args: Type, scope: Scope, context: TypeCheckContext, autocurry: boolean = true) : AST.CallableLiteral | null {
+    const decs = resolveMultipleDeclarationsByIdentifier(identifier, scope);
+    // Some declarations could be identifiers referring to a still earlier declaration, find the source!
+    const sourceDecs = _.flatten(decs.map(d => getDeclarationSources(d, scope, context))) as AST.DeclarationNode[];
+
+    for (let i = 0; i < sourceDecs.length; i++) {
+        const dec = sourceDecs[i];
+        const exprType = typeCheckExpression(dec.valueExpression, context, scope);
+        if (exprType.type !== 'function') continue;
+
+        const callable = dec.valueExpression as AST.CallableLiteral;
+        if (typesMatch(callable.input))
+
+        // Check the types match! if they do return, if the first argument matches, then return a curried functino if possible
+    }
+
+        
+
+        
+
+
+}
+
+export function compatibleFunctionsForType(type: Type, scope: Scope, context: TypeCheckContext) : AST.DeclarationNode[] {
+    return _.flatten(_.values(scope.declarationsByIdentifier)).filter((declaration: AST.DeclarationNode) => {
+
+
+        const expressionType = typeCheckExpression(declaration.valueExpression, context, scope);
+        if (expressionType.type )
+        return declaration.valueExpression as 
+    }).concat(scope.parent ? compatibleFunctionsForType(type, scope.parent, context) : []);
+}
 
 export function isIntegerType(type: Type) {
     return type.type === 'value' && (
@@ -448,6 +484,9 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
                     return Array.isArray(asArrayType.elementType) ? getAnyType() : asArrayType.elementType;
                 }
             }
+
+            // Nothing found? Magically fall back to finding a function in scope that has this type as its first
+            // argument. Potentially gonna be slowwwww...
         }
         else if (expression.type === 'expressioncallableLiteral') {
 
