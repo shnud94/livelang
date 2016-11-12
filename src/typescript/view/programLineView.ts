@@ -9,13 +9,13 @@ import * as checker from '../types/checker';
 import * as types from '../types/index';
 import * as _ from 'underscore';
 
-interface ProgramLineElementData {
+interface NodeLineElementData {
     controller: index.NodeTextController
 }
 
-export function create(program: AST.Nodes, container: HTMLElement) {
+export function create(rootNode: AST.Nodes, container: HTMLElement) {
 
-    const rootController = NodeController.basicController(program, null);
+    const rootController = NodeController.basicController(rootNode, null);
     const lineView = LineView.create(container, {
         onElementChange(value, previous, data) {}
     }, () => elementsFromController(rootController))
@@ -34,8 +34,11 @@ export function create(program: AST.Nodes, container: HTMLElement) {
                 if (changeResult.success) {
                     lineView.renderAll();
                     
-                    const module = ASTUtil.nearestModule(program);
-                    if (!module) debugger;
+                    const module = ASTUtil.nearestModule(rootNode);
+                    if (!module) {
+                        console.warn("Couldn't find a module to execute");
+                        return;
+                    }
                     else {
                         const contextAfterRun = interpreter.evaluateModule(module);
                         const {typeCheckContext} = contextAfterRun;
@@ -125,13 +128,13 @@ export function create(program: AST.Nodes, container: HTMLElement) {
     }
 }
 
-type ElementType = LineView.LineElement<ProgramLineElementData>;
+type ElementType = LineView.LineElement<NodeLineElementData>;
 const elementsFromController = (controller: index.NodeTextController) : ElementType[] => {
 
     let result = controller.render();
     let parts: ElementType[] = [];
     controller.firstNode = null;
-    const data: ProgramLineElementData = {
+    const data: NodeLineElementData = {
         controller: controller
     }
 

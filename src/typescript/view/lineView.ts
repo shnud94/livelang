@@ -206,7 +206,8 @@ function setTextOfText(el: HTMLElement, text: string) {
 function getTextInRange(start: HTMLElement, end: HTMLElement) : string {
     if (start === end) return textOfText(start);
 
-    const array = [start.innerText];
+    const array: string[] = [];
+
     function next(el: HTMLElement) : HTMLElement {
         const info = editableSiblingInfo(el, 1, true);
         if (info.crossedLines) {
@@ -214,11 +215,15 @@ function getTextInRange(start: HTMLElement, end: HTMLElement) : string {
         }
         return info.el;
     }
+
     let theNext = start;
     do {
-        theNext = next(theNext);
         array.push(textOfText(theNext));
-    } while (theNext && theNext !== end)
+        if (theNext === end) {
+            break;
+        }
+        theNext = next(theNext);
+    } while (theNext)
 
     return array.join('');
 }

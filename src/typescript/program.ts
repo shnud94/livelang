@@ -67,6 +67,13 @@ export class Program {
     }
 }
 
+export function nodeToJSON(program: AST.Nodes) : string {
+    return JSON.stringify(program, (key, val) => {
+        if (key.startsWith('_')) return undefined;
+        return val;
+    }, 2);
+}
+
 export function programToJSON(program: Program) : string {
     return JSON.stringify(_.pick(program, 'modules'), (key, val) => {
         if (key.startsWith('_')) return undefined;

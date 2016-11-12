@@ -74,6 +74,7 @@ export const frontendDescription = {
         if (node.type === 'expressionmapLiteral') return mapLiteral as any;
         if (node.type === 'expressionidentifier') return identifier as any;
         if (node.type === 'expressioncallableLiteral') return callableLiteral as any;
+        if (node.type === 'returnStatement') return returnStatement as any;
         if (node.type === 'declaration') return declaration as any;
         if ((node as any).type === 'expressionmapLiteral') return mapLiteral as any; // Why this particular one doesn't work I have no clue
         if (node.type === 'expressionnumericLiteral') return numericLiteral as any;
@@ -179,6 +180,29 @@ export const stringLiteral: NodeTextDescription<AST.StringLiteralNode> = {
     },
     componentsFromValue: node => {
         return ['"' + node.value.toString() + '"']
+    }
+}
+
+export const returnStatement: NodeTextDescription<AST.ReturnStatement> = {
+    id: 'returnStatement',
+    updateValueFromComponents: (components, prev) => {
+
+        const expression = justObjects(components)[0];
+        const ret = _.extend(program.createNode({
+            type: 'returnStatement',
+        }), prev, {expression});
+
+        return assignParent(ret, prev);
+    },
+    getTextSpecs() {
+        return [
+            'return',
+            __,
+            expression
+        ]
+    },
+    componentsFromValue: node => {
+        return ["return"].concat(node.expression ? [' ', node.expression] as any : []); 
     }
 }
 
@@ -437,7 +461,7 @@ export const callableLiteral: NodeTextDescription<AST.CallableLiteral> = {
         '{',
         __,
         {'*': {all: [ // 6
-            {or: [assignment, expression, declaration, typeDeclaration]},
+            {or: [returnStatement, assignment, expression, declaration, typeDeclaration]},
             __,  
             ';',
             __

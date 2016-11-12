@@ -3,6 +3,15 @@ export interface Result<T> {
     result?: T
 }
 
+export interface LLResult<E, R> {
+    error?: E,
+    result?: R
+}
+
+export class LLError {
+    constructor(public message?: string) {}
+}
+
 export function forceArray<T>(value: T | T[]) : T[] {
     return Array.isArray(value) ? (value as T[]) : [value as T];
 }

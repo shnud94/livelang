@@ -18,7 +18,7 @@ interface CodeNodeRuntime {
 }
 
 
-export type Nodes = AssignmentNode | DeclarationNode | ModuleNode | TypeDeclaration | Identifier | CallExpressionNode | MemberAccessExpression | ExpressionType | MapLiteralNode;
+export type Nodes = AssignmentNode | DeclarationNode | ModuleNode | TypeDeclaration | Identifier | CallExpressionNode | MemberAccessExpression | ExpressionType | MapLiteralNode | ReturnStatement;
 
 
 export interface CodeNode {
@@ -96,6 +96,11 @@ export type ExpressionType = Identifier | CallExpressionNode | MemberAccessExpre
 export interface Identifier extends CodeNode {
     type: 'expressionidentifier'
     value: string
+}
+
+export interface ReturnStatement extends CodeNode {
+    type: 'returnStatement'
+    expression?: ExpressionType
 }
 
 /**

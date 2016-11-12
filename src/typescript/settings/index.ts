@@ -44,4 +44,4 @@ class ElectronSetting<T> implements Setting<T> {
     }
 }
 
-export const lastOpenedFile = new ElectronSetting<string>('lastOpenedFile');
+export const recentProjects = new ElectronSetting<string[]>('recentProjects', []);

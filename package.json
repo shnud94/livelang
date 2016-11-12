@@ -26,10 +26,14 @@
     "electron-prebuilt": "^1.2.0"
   },
   "dependencies": {
+    "@types/chokidar": "^1.4.29",
+    "@types/electron": "^1.4.26",
     "@types/jquery": "^2.0.32",
+    "@types/node": "^6.0.46",
     "@types/react": "^0.14.37",
     "@types/react-dom": "^0.14.17",
     "@types/underscore": "^1.7.33",
+    "chokidar": "^1.6.1",
     "debug": "^2.2.0",
     "electron-connect": "^0.4.8",
     "eval": "^0.1.1",
