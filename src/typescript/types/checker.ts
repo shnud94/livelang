@@ -68,27 +68,27 @@ export function findMatchingFunction(identifier: string, args: Type, scope: Scop
         if (exprType.type !== 'function') continue;
 
         const callable = dec.valueExpression as AST.CallableLiteral;
-        if (typesMatch(callable.input))
+        const inputType = callableInputType(callable, context);
 
-        // Check the types match! if they do return, if the first argument matches, then return a curried functino if possible
+        if (typesMatch(inputType, args)) {
+            return callable;
+        }
+
+        // TODO: Return a curried function if they don't match
     }
 
-        
-
-        
-
-
+    return null;
 }
 
-export function compatibleFunctionsForType(type: Type, scope: Scope, context: TypeCheckContext) : AST.DeclarationNode[] {
-    return _.flatten(_.values(scope.declarationsByIdentifier)).filter((declaration: AST.DeclarationNode) => {
+// export function compatibleFunctionsForType(type: Type, scope: Scope, context: TypeCheckContext) : AST.DeclarationNode[] {
+//     return _.flatten(_.values(scope.declarationsByIdentifier)).filter((declaration: AST.DeclarationNode) => {
 
 
-        const expressionType = typeCheckExpression(declaration.valueExpression, context, scope);
-        if (expressionType.type )
-        return declaration.valueExpression as 
-    }).concat(scope.parent ? compatibleFunctionsForType(type, scope.parent, context) : []);
-}
+//         const expressionType = typeCheckExpression(declaration.valueExpression, context, scope);
+//         if (expressionType.type )
+//         return declaration.valueExpression as 
+//     }).concat(scope.parent ? compatibleFunctionsForType(type, scope.parent, context) : []);
+// }
 
 export function isIntegerType(type: Type) {
     return type.type === 'value' && (
@@ -502,6 +502,10 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
     expression._runtime = expression._runtime || {};
     expression._runtime.type = type;
     return type;
+}
+
+export function callableInputType(callable: AST.CallableLiteral, context: TypeCheckContext) : ArrayType {
+    return createArrayType(callable.input.map(i => getTypeOfTypeExpression(i.type, context)));
 }
 
 export function getTypeOfTypeExpression(typeExpression: AST.ExpressionType, context: TypeCheckContext) : Type {
