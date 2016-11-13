@@ -4,6 +4,7 @@ $color-red: #f90004;
 $color-grey: #EEE;
 $color-grey-dark: #555;
 $spacing-standard: 1rem;
+$z-index-command-window: 2;
 
 body {
     font-size: 18px;
@@ -249,6 +250,7 @@ input {
 }
 
 .command-window {
+    z-index: $z-index-command-window;
     font-size: 1em;
     width: 500px;
     margin: 0 auto;

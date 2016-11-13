@@ -13,14 +13,12 @@ interface SerializedProject {
   rootDir?: string,
   openFiles: string[]
 }
-
 interface GlobalSettings {
     node_modules: string,
     tmp: string,
     userhome: string
 }
-
-interface ModuleHandle {
+export interface ModuleHandle {
     root: AST.ModuleNode,
 
     // For now tied to storage on hard disk, later on change things so we can store these wherever?
@@ -32,6 +30,7 @@ interface ModuleHandle {
 export class LiveLangProject {
 
     private openModules: {[path: string]: ModuleHandle} = {}
+    private rootDir: string
 
     static getGlobalSettings() : GlobalSettings {
         return {
@@ -42,7 +41,9 @@ export class LiveLangProject {
     } 
 
     constructor(private project: SerializedProject) {
-        const watcher = chokidar.watch(project.rootDir, {
+        this.rootDir = project.rootDir;
+
+        const watcher = chokidar.watch(this.rootDir, {
           persistent: true,
           alwaysStat: true,
           ignored: /[\/\\]\./
@@ -54,10 +55,25 @@ export class LiveLangProject {
         watcher.on('add', (path, stat) => {
             if (!stat.isDirectory()) {
                 this.openModules[path] = this.getHandleFromFile(path);
+                this.render();
             }
         });
 
+        this.initProject();
+        this.render();
+    }
+
+    render() {
         projectView.mount($('#livelang-root')[0], this);
+    }
+
+    initProject() {
+        const projectConfigPath = path.join(this.project.rootDir, 'project.ll');
+        if (!fs.existsSync(projectConfigPath)) {
+            fs.writeFileSync(projectConfigPath, '{}');
+        }
+        const config = fs.readFileSync(projectConfigPath);
+        // don't do anything with this just yet, nothing to really config...
     }
 
     getHandleFromFile(filename: string) : ModuleHandle | null {
@@ -103,26 +119,6 @@ export class LiveLangProject {
     }
 
     getAllModules() : ModuleHandle[] {
-
-        let handles: ModuleHandle[] = []; 
-        
-        const addFilesInDirectory = (dirPath: string) => {
-            fs.readdirSync(dirPath).forEach(filename => {
-
-                const completePath = path.join(dirPath, filename);
-                const stat = fs.statSync(completePath);
-                if (stat.isDirectory()) {
-                    addFilesInDirectory(completePath);
-                }
-                else {
-                    const handle = this.getHandleFromFile(completePath);
-                    if (handle) handles.push(handle);            
-                }
-            })
-        }
-
-        addFilesInDirectory(this.project.rootDir);
-        return handles;
+        return _.values(this.openModules);
     }
-
 }

@@ -11,32 +11,20 @@ interface CommandWindowState {
     query: string,
     selectedListIndex: number
 }
-interface Command {
+export interface Command {
     name: string,
     doer: Function
+    type: "file" | "command"
 }
 
-interface CommandWindowProps extends ProjectViewProps {
+export interface CommandWindowProps extends ProjectViewProps {
     onClose()
+    commands: Command[]
 }
 
 export class CommandWindow extends React.Component<CommandWindowProps, CommandWindowState> {
 
-    commands: Command[] = [
-        {
-            name: 'Open File',
-            doer: () => alert('opening!')
-        },
-        {
-            name: 'Save File',
-            doer: () => alert('saving!')
-        },
-        {
-            name: 'Load File',
-            doer: () => alert('loading!')
-        }
-    ]
-    fused = new Fuse(this.commands, {keys:['name']})
+    fused: any;
 
     constructor(props) {
         super(props);
@@ -44,6 +32,7 @@ export class CommandWindow extends React.Component<CommandWindowProps, CommandWi
             query: '',
             selectedListIndex: 0
         }
+        this.fused = new Fuse(this.props.commands, {keys:['name']})
     }
 
     getResults() : Command[] {
