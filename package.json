@@ -28,6 +28,7 @@
   "dependencies": {
     "@types/chokidar": "^1.4.29",
     "@types/electron": "^1.4.26",
+    "@types/immutable": "^3.8.4",
     "@types/jquery": "^2.0.32",
     "@types/node": "^6.0.46",
     "@types/react": "^0.14.37",
@@ -47,14 +48,16 @@
     "gulp-sass": "^2.3.2",
     "gulp-sourcemaps": "^1.6.0",
     "gulp-typescript": "^2.13.6",
+    "immutable": "^3.8.1",
     "jquery": "^3.1.0",
     "jquery.caret": "^0.3.1",
+    "key-codes": "0.0.1",
     "merge2": "^1.0.2",
     "nearley": "^2.7.3",
     "react": "^15.3.2",
     "react-dom": "^15.3.2",
     "sync-promise": "^1.0.1",
-    "typescript": "^2.0.3",
+    "typescript": "^2.0.6",
     "underscore": "^1.8.3"
   }
 }

@@ -1,3 +1,4 @@
+import '../prototype/index';
 import * as programLineView from '../view/programLineView';
 import * as AST from '../ast/index';
 import * as fs from 'fs';
@@ -5,6 +6,8 @@ import * as program from '../program';
 import * as _ from 'underscore';
 import * as chokidar from 'chokidar';
 import * as path from 'path';
+import * as projectView from '../view/project/project-view';
+import * as $ from 'jquery';
 
 interface SerializedProject {
   rootDir?: string,
@@ -53,6 +56,8 @@ export class LiveLangProject {
                 this.openModules[path] = this.getHandleFromFile(path);
             }
         });
+
+        projectView.mount($('#livelang-root')[0], this);
     }
 
     getHandleFromFile(filename: string) : ModuleHandle | null {
