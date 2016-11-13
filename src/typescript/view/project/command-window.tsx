@@ -51,6 +51,7 @@ export class CommandWindow extends React.Component<CommandWindowProps, CommandWi
         else if (keyCode === keys.UP_ARROW || keyCode === keys.DOWN_ARROW) {
             this.setState(s => {
                 s.selectedListIndex = (s.selectedListIndex + (keyCode === keys.DOWN_ARROW ? 1 : results.length + 1)) % results.length;
+                if (isNaN(s.selectedListIndex)) s.selectedListIndex = 0;
                 return s;
             });
         }

@@ -34,6 +34,7 @@ export class ProjectView extends React.Component<ProjectViewProps, ProjectViewSt
             openFile: props.project.getAllModules()[0],
             commands: this.getCommands(props.project)
         }
+        $('title')[0].innerText = props.project.rootDir
     }
     
     componentWillReceiveProps(newProps: ProjectViewProps) {

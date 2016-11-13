@@ -30,7 +30,7 @@ export interface ModuleHandle {
 export class LiveLangProject {
 
     private openModules: {[path: string]: ModuleHandle} = {}
-    private rootDir: string
+    rootDir: string
 
     static getGlobalSettings() : GlobalSettings {
         return {
