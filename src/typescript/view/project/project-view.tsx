@@ -6,6 +6,7 @@ import * as _ from 'underscore';
 import {CommandWindow, Command} from './command-window';
 import keys from '../util/keys';
 import * as $ from 'jquery';
+import * as programLineView from '../programLineView';
 
 var count = 0;
 export function mount(element: HTMLElement, project: project.LiveLangProject) {
@@ -22,10 +23,12 @@ export interface ProjectViewProps {
 export interface ProjectViewState {
     commandWindowOpen: boolean,
     commands: Command[],
-    openFile: project.ModuleHandle
+    openFile: project.ModuleHandle | null
 }
 
 export class ProjectView extends React.Component<ProjectViewProps, ProjectViewState> {
+
+    lastOpenFile?: project.ModuleHandle
 
     constructor(props: ProjectViewProps) {
         super(props);
@@ -80,6 +83,19 @@ export class ProjectView extends React.Component<ProjectViewProps, ProjectViewSt
         }
     }
 
+    setContent(content: HTMLElement | null) {
+        if (this.state.openFile && content) {
+            if (this.lastOpenFile !== this.state.openFile) {
+                programLineView.create(this.state.openFile.root, content, {
+                    onSuccessfulChange: () => {
+                        this.state.openFile.save();
+                    }
+                });
+                this.lastOpenFile = this.state.openFile;
+            }
+        }
+    }
+
     onCommandWindowClose() {
         this.setState(s => {
             s.commandWindowOpen = false;
@@ -96,8 +112,8 @@ export class ProjectView extends React.Component<ProjectViewProps, ProjectViewSt
         
         return <div className="project-view">
             {this.state.commandWindowOpen && React.createElement(CommandWindow, commandWindowProps)}
-            <div className="content">
 
+            <div ref={(element) => this.setContent(element)} className="content">
                 {this.state.openFile ? this.state.openFile.filename : null}
             </div>
         </div>

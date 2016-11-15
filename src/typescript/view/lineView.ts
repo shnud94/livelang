@@ -56,7 +56,7 @@ function getLineData(element: JQuery) {
     return element.data() as LineData;
 }
 interface LineViewOptions<ElementType> {
-    onElementChange?(now: string, previous: string, data: ElementType) 
+    onElementChange?(now: string, previous: string, data: ElementType)
 }
 
 function getDomData(el: HTMLElement) : LineElementDomData {
@@ -282,14 +282,16 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
     const canvas = $('<canvas>').appendTo(wrap).css({
         position: 'absolute',
         top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
+        right: 0,
         'pointer-events' : 'none'
     })[0] as HTMLCanvasElement;
     const context = () => {
-        canvas.width = wrap.width();
-        canvas.height = wrap.height();
+        $(canvas).css({
+            width: lineContainer.width(),
+            height: lineContainer.height(),
+        });
+        canvas.width = lineContainer.width();
+        canvas.height = lineContainer.height();
         return canvas.getContext('2d'); 
     }
     let lines = [];
@@ -643,6 +645,7 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
         .on('mousedown mousemove mouseup' as any, (event: MouseEvent) => {
 
         if (event.type === 'mousedown') {
+            event.preventDefault();
             const line = $(event.target).closest('.line');
 
             if ($(event.target).hasClass('text')) {
@@ -653,6 +656,7 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
                 focusAndStuff(toFocus);
                 util.setCaretFraction(toFocus, 1);
             }
+            
 
             state.currentDrag = {
                 startLine: line,

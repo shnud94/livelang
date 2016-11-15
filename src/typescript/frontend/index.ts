@@ -33,7 +33,7 @@ type TextComponentType =
      * is assumed that the code node has an associated text descriptor defined. If not, an
      * error will be thrown at runtime
      */
-    | AST.CodeNode;
+    | AST.Nodes;
 
 export interface Classes {
     kind: 'classes',

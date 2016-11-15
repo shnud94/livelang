@@ -27,8 +27,7 @@ const createBaseComponentControllerEvents = () : NodeEvents => {
  * Resuable general controller for all nodes
  */
 export const basicController = (node: AST.Nodes, parent?: NodeTextController) : NodeTextController => {
-    
-    const nodeDescription = js.frontendDescription.descriptorForNode(node);
+
     
     // See these more as pointers to the beginning of components, not necessarily the whole component, could be a list
     // of many
@@ -41,7 +40,10 @@ export const basicController = (node: AST.Nodes, parent?: NodeTextController) : 
         node: node,
         events: createBaseComponentControllerEvents(),
         handleComponentChange: (newValue, source) => {
-            if (nodeDescription.denyReparse) return failureResponse;
+            if (typeof(newValue) !== 'object') return;
+
+            thisController.description = js.frontendDescription.descriptorForNode(newValue as any);
+            if (!thisController.description || thisController.description.denyReparse) return failureResponse;
         
             const whitespace = /\s*/.exec(source)[0];
             _.keys(newValue).forEach(key => {
@@ -81,7 +83,7 @@ export const basicController = (node: AST.Nodes, parent?: NodeTextController) : 
                 }
             };
             
-            nodeDescription.componentsFromValue(node).forEach((component, index, array) => {
+            thisController.description.componentsFromValue(node).forEach((component, index, array) => {
                 const asArray = utils.forceArray(component);
                 asArray.forEach((component, indexInArray) => {
                     processDescription(component);
@@ -97,7 +99,7 @@ export const basicController = (node: AST.Nodes, parent?: NodeTextController) : 
                 })
             }
         },
-        description: nodeDescription
+        description: js.frontendDescription.descriptorForNode(node)
     }
 
     return thisController;

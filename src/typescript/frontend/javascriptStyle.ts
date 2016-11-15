@@ -787,9 +787,15 @@ export const theModule: NodeTextDescription<AST.ModuleNode> = {
             })
         }
 
-        node.children = (flat(components[6]) as Array<any>).filter(child => typeof(child) !== 'string').map(child => {
-            return assignParent(child, node);    
-        });
+        const children = flat(components[6]);
+        if (Array.isArray(children)) {
+            node.children = (children as Array<any>).filter(child => typeof(child) !== 'string').map(child => {
+                return assignParent(child, node);    
+            });
+        }
+        else {
+            node.children = [];
+        }
         node.identifier = assignParent(flat(components[2]), node);
         return node;
     },

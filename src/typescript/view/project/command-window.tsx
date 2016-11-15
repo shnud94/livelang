@@ -45,7 +45,8 @@ export class CommandWindow extends React.Component<CommandWindowProps, CommandWi
         const keyCode = event.keyCode;
 
         if (event.keyCode === keys.RETURN) {
-            results[this.state.selectedListIndex].doer();
+            const result = results[this.state.selectedListIndex];
+            if (result) result.doer();
             this.props.onClose();
         }
         else if (keyCode === keys.UP_ARROW || keyCode === keys.DOWN_ARROW) {

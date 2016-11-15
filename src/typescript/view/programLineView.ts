@@ -4,20 +4,29 @@ import * as NodeController from './nodeController';
 import * as LineView from './lineView';
 import * as index from './index';
 import * as parser from '../parser/custom';
+import * as textDesc from '../frontend/javascriptStyle';
 import * as interpreter from '../interpreter/index';
 import * as checker from '../types/checker';
 import * as types from '../types/index';
 import * as _ from 'underscore';
+import * as $ from 'jquery';
 
 interface NodeLineElementData {
     controller: index.NodeTextController
 }
 
-export function create(rootNode: AST.Nodes, container: HTMLElement) {
+interface ProgramLineViewOptions {
+    onSuccessfulChange?()
+}
+
+export function create(rootNode: AST.Nodes, container: HTMLElement, options: ProgramLineViewOptions) {
+    $(container).empty();
 
     const rootController = NodeController.basicController(rootNode, null);
     const lineView = LineView.create(container, {
-        onElementChange(value, previous, data) {}
+        onElementChange(value, previous, data) {
+
+        }
     }, () => elementsFromController(rootController))
 
     $(container).keyup(event => {
@@ -27,7 +36,7 @@ export function create(rootNode: AST.Nodes, container: HTMLElement) {
         else {
             event.preventDefault();
             const text = lineView.getAllText();
-            const wholeParseResult = parser.parseSpecCached(rootController.description, lineView.getAllText(), rootController.description.id);
+            const wholeParseResult = parser.parseSpecCached(textDesc.theModule, lineView.getAllText(), textDesc.theModule.id);
 
             if (wholeParseResult.result) {
                 const changeResult = rootController.handleComponentChange(wholeParseResult.result, text);
@@ -68,6 +77,7 @@ export function create(rootNode: AST.Nodes, container: HTMLElement) {
 
                         // Show results
                         if (contextAfterRun) {
+                            if (options.onSuccessfulChange) options.onSuccessfulChange();
                             const {resultsPerNode} = contextAfterRun;
 
                             type id = string;
@@ -130,6 +140,10 @@ export function create(rootNode: AST.Nodes, container: HTMLElement) {
 
 type ElementType = LineView.LineElement<NodeLineElementData>;
 const elementsFromController = (controller: index.NodeTextController) : ElementType[] => {
+
+    if (controller.description == null) {
+        return [{content: 'no node description'}];
+    }
 
     let result = controller.render();
     let parts: ElementType[] = [];
