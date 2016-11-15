@@ -7,6 +7,7 @@ import {CommandWindow, Command} from './command-window';
 import keys from '../util/keys';
 import * as $ from 'jquery';
 import * as programLineView from '../programLineView';
+import {ModuleView} from './module-view';
 
 var count = 0;
 export function mount(element: HTMLElement, project: project.LiveLangProject) {
@@ -55,6 +56,17 @@ export class ProjectView extends React.Component<ProjectViewProps, ProjectViewSt
         $(window).off('keyup.projectView');
     }
 
+    getContentView() {
+        if (this.state.openFile) {
+            return React.createElement(ModuleView, {
+                moduleHandle: this.state.openFile
+            });
+        }
+        else {
+            return <div>Nothing to see here!</div>
+        }
+    }
+
     getCommands(project: project.LiveLangProject) : Command[] {
         const fileOpens: Command[] = this.props.project.getAllModules().map(module => {
             return {
@@ -83,18 +95,7 @@ export class ProjectView extends React.Component<ProjectViewProps, ProjectViewSt
         }
     }
 
-    setContent(content: HTMLElement | null) {
-        if (this.state.openFile && content) {
-            if (this.lastOpenFile !== this.state.openFile) {
-                programLineView.create(this.state.openFile.root, content, {
-                    onSuccessfulChange: () => {
-                        this.state.openFile.save();
-                    }
-                });
-                this.lastOpenFile = this.state.openFile;
-            }
-        }
-    }
+    
 
     onCommandWindowClose() {
         this.setState(s => {
@@ -113,9 +114,7 @@ export class ProjectView extends React.Component<ProjectViewProps, ProjectViewSt
         return <div className="project-view">
             {this.state.commandWindowOpen && React.createElement(CommandWindow, commandWindowProps)}
 
-            <div ref={(element) => this.setContent(element)} className="content">
-                {this.state.openFile ? this.state.openFile.filename : null}
-            </div>
+            {this.getContentView()}
         </div>
     }
 }

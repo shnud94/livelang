@@ -1,13 +1,14 @@
 $color-blue: #03a9f4;
 $color-yellow: #f9e604;
 $color-red: #f90004;
+$color-black: #2f2f2f;
 $color-grey: #EEE;
 $color-grey-dark: #555;
 $spacing-standard: 1rem;
 $z-index-command-window: 2;
 
 body {
-    font-size: 18px;
+    font-size: 15px;
     font-family: sans-serif;
     box-sizing: border-box;
     margin: 0;
@@ -204,7 +205,11 @@ input {
         max-width: 50em;
         
         .line {
-            border-bottom: 1px solid $color-grey;
+            &.focused {
+                border-color: $color-grey;
+            }
+            transition: border 0.5s;
+            border: 1px solid transparent;
             position: relative;
             &:focus {
                 border-color: darken($color-grey, 10%);
@@ -288,5 +293,24 @@ input {
         text-align: center;
         font-size: 0.9em;
         padding-top: 0.5em;
+    }
+}
+
+.module-view {
+    .title-wrap {
+        padding: 0.66em 1em;
+        background: white;
+
+        .title {
+            margin: 0 auto;
+            text-align: center;
+            display: table;
+            background: $color-blue;
+            color: white;
+            border-radius: 100px;
+            padding: 0.5em 1em;
+            font-size: 0.8em;
+            white-space: nowrap;
+        }
     }
 }
