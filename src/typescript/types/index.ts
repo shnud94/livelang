@@ -6,13 +6,18 @@ import * as string from '../interpreter/lib/string';
 import * as boolean from '../interpreter/lib/boolean';
 
 export interface TypeBase {
-    identifier?: string
+   
 }
 
-export type Type = TypeBase & (AndType | OrType | FunctionType | MapType | ArrayType | ValueType | AnyType);
+export type Type = TypeBase & (AndType | OrType | FunctionType | MapType | ArrayType | IdentifierType | AnyType | GenericType);
 
 export interface AnyType extends TypeBase {
     type: 'any'
+}
+
+export interface GenericType extends TypeBase {
+    type: 'generic',
+    match: Type
 }
 
 export interface AndType extends TypeBase {
@@ -25,8 +30,9 @@ export interface OrType extends TypeBase {
     choices: Type[]
 }
 
-export interface ValueType extends TypeBase {
-    type: 'value'
+export interface IdentifierType extends TypeBase {
+    type: 'identifier',
+    identifier: string
 }
 
 
@@ -58,6 +64,15 @@ export function getAnyType() : Type {
     }
 }
 
+export const genericArray = createArrayType(getGenericType());
+export function getGenericType() : GenericType {
+    return {
+        identifier: 'generic',
+        type: 'generic',
+        match: getAnyType()
+    }
+}
+
 export function createMapType(map: {[key: string] : Type}, identifier?: string) : MapType {
     return {
         identifier: identifier,
@@ -74,10 +89,10 @@ export function createArrayType(type: Type | Type[], identifier?: string) : Arra
     };
 }
 
-export function createValueType(identifier: string) : ValueType {
+export function createValueType(identifier: string) : IdentifierType {
     return {
         identifier: identifier,
-        type: 'value'
+        type: 'identifier'
     };
 }
 

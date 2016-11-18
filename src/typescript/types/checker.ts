@@ -4,7 +4,10 @@ import * as AST from '../AST/index';
 import * as util from '../util';
 const log = require('debug')('livelang:typechecker');
 import * as _ from 'underscore';
+
 import * as numbers from '../interpreter/lib/number';
+import * as arrays from '../interpreter/lib/array';
+
 
 export type TypeCheckError = TypeMismatchError | TypeErrorVague; 
 
@@ -138,7 +141,7 @@ export function typeCheckModule(module: AST.ModuleNode, context?: TypeCheckConte
     }
 
     const libraryDeclarations: AST.DeclarationNode[] = _.flatten([
-        [].concat(_.values(numbers))
+        [].concat(numbers.declarations, arrays.declarations)
     ]);
     libraryDeclarations.forEach(processChild);
 
