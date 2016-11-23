@@ -7,7 +7,7 @@ import 'fuzzyset.js';
 import * as index from './index';
 import {NodeTextController} from '../view/index';
 import * as View from '../view/index';
-import {TextDescription, NodeTextDescription, TextSpec} from './index';
+import {TextToValue, TextDescription, NodeTextDescription, TextSpec} from './index';
 
 const frontendId = 'javascript';
 const justObjects = (something: any) => {
@@ -49,43 +49,6 @@ export const output = {
     }
 }
 
-export const frontendDescription = {
-    descriptorForNode<T extends AST.Nodes>(node: T) : NodeTextDescription<T> {
-        
-        if (node.type === 'expressioncallExpression') {
-            // Transform call expressions to operators back into binary expressions
-
-            const asCallExpression = node as any as AST.CallExpressionNode;
-            if (asCallExpression.target.type === 'expressionidentifier') {
-                
-                const identifier = (asCallExpression.target as AST.Identifier).value;
-
-                if (binaryOpSet.has(identifier)) {
-                    return binaryExpression as NodeTextDescription<any>;
-                }
-            }
-        }
-
-        if (node.type === 'module') return theModule as any;
-        if (node.type === 'expressioncallExpression') return callExpression as any;
-        if (node.type === 'expressionmemberAccess') return memberAccessExpression as any;
-        if (node.type === 'expressionfunctionAccess') return functionAccessExpression as any;
-        if (node.type === 'assignment') return assignment as any;
-        if (node.type === 'expressionmapLiteral') return mapLiteral as any;
-        if (node.type === 'expressionidentifier') return identifier as any;
-        if (node.type === 'expressioncallableLiteral') return callableLiteral as any;
-        if (node.type === 'returnStatement') return returnStatement as any;
-        if (node.type === 'declaration') return declaration as any;
-        if ((node as any).type === 'expressionmapLiteral') return mapLiteral as any; // Why this particular one doesn't work I have no clue
-        if (node.type === 'expressionnumericLiteral') return numericLiteral as any;
-        if (node.type === 'expressionstringLiteral') return stringLiteral as any;
-        if (node.type === 'expressionarrayLiteral') return arrayLiteral as any;
-        if (node.type === 'typeDeclaration') return typeDeclaration as any;
-        
-        return null as any;
-    }   
-};
-
 function optionally(spec: TextSpec) : TextSpec {
     return {'?' : spec};
 }
@@ -104,20 +67,12 @@ const binaryOpSet = new Set(binaryOperators);
 const __ = {'*': {charset: ' \xA0\\t\\n\\v\\f'}};
 const ___ = {'+': {charset: ' \xA0\\t\\n\\v\\f'}};
 
-export const identifier: NodeTextDescription<AST.Identifier> = {
+export const identifier: TextToValue<AST.Identifier> = {
     id: 'identifier',
-    updateValueFromComponents: (components, prev) => {
-        if (!prev) {
-            prev = {
-                type: 'expressionidentifier',
-                value: null,
-                _parent: prev ? prev._parent : null
-            }
-        }
-
-        prev.value = flat(components) as string;
-        return prev;
-    },
+    valueFromComponents: components => ({
+            type: 'expressionidentifier', 
+            value: flat(components) as string
+    }),
     getTextSpecs() {
         return [
             {all: [
@@ -125,25 +80,15 @@ export const identifier: NodeTextDescription<AST.Identifier> = {
                 {'*' : {charset: 'a-zA-Z0-9_'}}
             ]}
         ]
-    },
-    componentsFromValue: node => {
-        return [node.value.toString()]
     }
 }
 
-export const numericLiteral: NodeTextDescription<AST.NumericLiteralNode> = {
+export const numericLiteral: TextToValue<AST.NumericLiteralNode> = {
     id: 'numericLiteral',
-    updateValueFromComponents: (components, prev) => {
-        if (!prev) {
-            prev = program.createNode({
-                type: 'expressionnumericLiteral',
-                value: 0,
-                _parent: null
-            })
-        }
-        prev.value = parseFloat(flat(components));
-        return prev;
-    },
+    valueFromComponents: components => ({
+        type: 'expressionnumericLiteral',
+        value: parseFloat(flat(components)),
+    }),
     getTextSpecs() {
         return [
             {or: [
@@ -155,21 +100,18 @@ export const numericLiteral: NodeTextDescription<AST.NumericLiteralNode> = {
                 },    
             ]}
         ]
-    },
-    componentsFromValue: node => {
-        return [node.value.toString()]
     }
 }
 
-export const stringLiteral: NodeTextDescription<AST.StringLiteralNode> = {
+export const stringLiteral: TextToValue<AST.StringLiteralNode> = {
     id: 'stringliteral',
-    updateValueFromComponents: (components, prev) => {
+    valueFromComponents: components => {
+        
         const value = flat(components);
-        return program.createNode({
+        return {
             type: 'expressionstringLiteral',
-            value: value.substr(1, value.length - 2),
-            _parent: prev ? prev._parent : null
-        })
+            value: value.substr(1, value.length - 2)
+        }
     },
     getTextSpecs() {
         return [
@@ -177,22 +119,18 @@ export const stringLiteral: NodeTextDescription<AST.StringLiteralNode> = {
             {'*':{charset: '^"'}},
             '"'
         ]
-    },
-    componentsFromValue: node => {
-        return ['"' + node.value.toString() + '"']
     }
 }
 
-export const returnStatement: NodeTextDescription<AST.ReturnStatement> = {
+export const returnStatement: TextToValue<AST.ReturnStatement> = {
     id: 'returnStatement',
-    updateValueFromComponents: (components, prev) => {
+    valueFromComponents: components => {
 
         const expression = justObjects(components)[0];
-        const ret = _.extend(program.createNode({
+        return {
             type: 'returnStatement',
-        }), prev, {expression});
-
-        return assignParent(ret, prev);
+            expression
+        }        
     },
     getTextSpecs() {
         return [
@@ -200,32 +138,26 @@ export const returnStatement: NodeTextDescription<AST.ReturnStatement> = {
             __,
             expression
         ]
-    },
-    componentsFromValue: node => {
-        return ["return"].concat(node.expression ? [' ', node.expression] as any : []); 
     }
 }
 
 const objectField = () => ({all: [identifier, __, ':', __, expression]});
 
-export const mapLiteral: NodeTextDescription<AST.MapLiteralNode> = {
+export const mapLiteral: TextToValue<AST.MapLiteralNode> = {
     id: 'mapLiteral',
-    updateValueFromComponents: (components, prev) => {
-        if (!prev) {
-            prev = program.createNode({
-                type: 'expressionmapLiteral',
-                value: {},
-                _parent: prev ? prev._parent : null
-            })
-        }
-
-        prev.value = {};
+    valueFromComponents: components => {
+        
+        let node: AST.MapLiteralNode = {
+            type: 'expressionmapLiteral',
+            value: {}
+        };
+ 
         const objects = flat(components).filter(c => typeof(c) === 'object') as any;
         objects.forEach((obj, i) => {
             if (i % 2 == 0) return;
-            prev.value[objects[i - 1].value] = assignParent(obj, prev);
+            node.value[objects[i - 1].value] = assignParent(obj, node);
         });
-        return prev;
+        return node;
     },
     getTextSpecs() {
         return [
@@ -236,62 +168,40 @@ export const mapLiteral: NodeTextDescription<AST.MapLiteralNode> = {
             '}'
         ]
     },
-    componentsFromValue: node => {
-        return [
-            '{\n',
-            _.keys(node.value).map((key, index, array) => {
-               return ['\t', key, ':', ' ', node.value[key], index < array.length - 1 ? ',' : '', '\n']; 
-            }) as any,
-            '}'
-        ]
-    }
 }
 
-export const prefixExpression: NodeTextDescription<AST.CallExpressionNode> = {
+export const prefixExpression: TextToValue<AST.CallExpressionNode> = {
     id: 'prefixExpression',
-    updateValueFromComponents: (components, prev) => {
+    valueFromComponents: components => {
 
-        if (!prev) {
-            prev = program.createNode({
-                _parent: null,
-                target: null,
-                input: null,
-                type: 'expressioncallExpression'
-            })
-        }
+        let node: any = {
+            type: 'expressioncallExpression'
+        };
 
         const valid = {'!':true,'-':true};
-        let identifier: AST.Identifier = assignParent(flat(components[0]) as AST.Identifier, prev);
-        prev.target = identifier;
+        let identifier: AST.Identifier = assignParent(flat(components[0]) as AST.Identifier, node);
+        node.target = identifier;
 
         if (!valid[identifier.value]) {
             console.error('Invalid operator for prefix expression')
             identifier.value = '!';
         }
         
-        prev.input = assignParent(flat(components[1]) as any, prev);
-        return prev;
+        node.input = assignParent(flat(components[1]) as any, node);
+        return node;
     },
     getTextSpecs: () => [
         {charset: "-!"},
         expression
-    ],
-    componentsFromValue: node => [
-        node.target, 
-        node.input
     ]
 }
 
-export const arrayLiteral: NodeTextDescription<AST.ArrayLiteralNode> = {
+export const arrayLiteral: TextToValue<AST.ArrayLiteralNode> = {
     id: 'arrayLiteral',
-    updateValueFromComponents: (components, prev) => {
-        
-        if (!prev) {
-            prev = program.createNode({
-                _parent: null,
-                value: null,
-                type: 'expressionarrayLiteral'
-            });
+    valueFromComponents: components => {
+        const prev: AST.ArrayLiteralNode = {
+            type: 'expressionarrayLiteral',
+            value: []
         }
 
         const elements = flatten(components[1]).filter(el => typeof(el) === 'object') as AST.ExpressionType[]; 
@@ -304,36 +214,19 @@ export const arrayLiteral: NodeTextDescription<AST.ArrayLiteralNode> = {
             optionally(commaSeparated(expression)),            
             ']'
         ]
-    },
-    componentsFromValue: node => {
-        return [
-            '[',
-            flatten(node.value.map((value, index, array) => {
-               if (index > 0) {
-                return [', ', value] as any
-               } 
-               else {
-                   return [value] as any
-               }
-            })),
-            ']'
-        ]
     }
 }
 
-export const functionAccessExpression: NodeTextDescription<AST.FunctionAccessExpression> = {
+export const functionAccessExpression: TextToValue<AST.FunctionAccessExpression> = {
     id: 'functionAccess',
-    updateValueFromComponents: (components, prev) => {
+    valueFromComponents: components => {
  
-        if (!prev) {
-            prev = program.createNode({
-                _parent: null,
-                subject: null,
-                member: null,
-                type: 'expressionfunctionAccess'
-            })
+        const prev: AST.FunctionAccessExpression = {
+            type: 'expressionfunctionAccess',
+            identifier: null,
+            subject: null
         }
-
+    
         prev.subject = assignParent(flat(components[0]) as AST.ExpressionType, prev);
         prev.identifier = assignParent(flat(components[2]) as AST.Identifier, prev);
 
@@ -343,27 +236,19 @@ export const functionAccessExpression: NodeTextDescription<AST.FunctionAccessExp
         expression,
         '->',
         identifier     
-    ]),
-    componentsFromValue: node => [
-        node.subject,
-        '->',
-        node.identifier
-    ]
+    ])
 }
 
-export const memberAccessExpression: NodeTextDescription<AST.MemberAccessExpression> = {
+export const memberAccessExpression: TextToValue<AST.MemberAccessExpression> = {
     id: 'memberAccess',
-    updateValueFromComponents: (components, prev) => {
+    valueFromComponents: components => {
         
-        if (!prev) {
-            prev = program.createNode({
-                _parent: null,
-                subject: null,
-                member: null,
-                type: 'expressionmemberAccess'
-            })
+        const prev: AST.MemberAccessExpression = {
+            type: 'expressionmemberAccess',
+            member: null,
+            subject: null 
         }
-
+        
         prev.subject = assignParent(flat(components[0]) as AST.ExpressionType, prev);
 
         const member = flat(components)[2] as AST.Nodes;
@@ -382,38 +267,18 @@ export const memberAccessExpression: NodeTextDescription<AST.MemberAccessExpress
             {all: ['\.', identifier]}, 
             {all: ['[', expression, ']']}
         ]}
-    ]),
-    componentsFromValue: node => {
-        if (node.member.type === 'expressionstringLiteral') {
-            return [
-                node.subject,
-                '.',
-                node.member.type === 'expressionstringLiteral' ? node.member.value : node.member
-            ]
-        }
-        else {
-            return [
-                node.subject,
-                '[',
-                node.member,
-                ']'
-            ]
-        }        
-    }
+    ])
 }
 
-export const callableLiteral: NodeTextDescription<AST.CallableLiteral> = {
+export const callableLiteral: TextToValue<AST.CallableLiteral> = {
     id: 'callableLiteral',
-    updateValueFromComponents: (components, prev) => {
-        if (!prev) {
-            prev = program.createNode({
-                _parent: null,
-                input: [],
-                output: null,
-                type: 'expressioncallableLiteral',
-                body: []
-            })
-        }
+    valueFromComponents: (components) => {    
+        const node: AST.CallableLiteral = {
+            type: 'expressioncallableLiteral',
+            input: [],
+            output: null,
+            body: []
+        };
 
         const input = _.flatten(components[1] as any);
         const inputs = [];
@@ -441,10 +306,10 @@ export const callableLiteral: NodeTextDescription<AST.CallableLiteral> = {
         });
         if (lastVar) addVarNoType(lastVar);
 
-        prev.input = inputs.map(input => assignParent(input, prev));
-        prev.body = _.flatten(components[10] as any).filter(c => typeof(c) === 'object') as AST.ModuleChild[];
-        prev.output = justObjects(_.flatten(components[4] as any))[0] || AST.createIdentifier('null', prev);
-        return prev;
+        node.input = inputs.map(input => assignParent(input, node));
+        node.body = _.flatten(components[10] as any).filter(c => typeof(c) === 'object') as AST.ModuleChild[];
+        node.output = justObjects(_.flatten(components[4] as any))[0] || AST.createIdentifier('null', node);
+        return node;
     },
     getTextSpecs: () => ([
         '(',
@@ -468,33 +333,18 @@ export const callableLiteral: NodeTextDescription<AST.CallableLiteral> = {
         ]}},
         __,
         '}'     
-    ]),
-    componentsFromValue: node => [
-        '(',
-        _.flatten(node.input.map((input, index, array) => {
-           return [input.identifier, ': ', input.type, index === array.length - 1 ? '' : ', ']     
-        })),
-        ') -> {\n',
-        node.body.map(child => {
-            return [child, ';\n']
-        }) as any,
-        '',
-        '}' 
-    ]
-
+    ])
 }
 
-export const callExpression: NodeTextDescription<AST.CallExpressionNode> = {
+export const callExpression: TextToValue<AST.CallExpressionNode> = {
     id: 'callExpression',
-    updateValueFromComponents: (components, prev) => {
-        
-        if (!prev) {
-            prev = program.createNode({
-                _parent: null,
-                input: null,
-                target: null,
-                type: 'expressioncallExpression'
-            })
+    valueFromComponents: (components) => {
+
+        const prev: AST.CallExpressionNode = {
+            input: null,
+            target: null,
+            type: 'expressioncallExpression',
+            _runtime: null
         }
 
         prev.target = assignParent(flat(components[0]) as AST.ExpressionType, prev);
@@ -506,30 +356,22 @@ export const callExpression: NodeTextDescription<AST.CallExpressionNode> = {
         expression,
         {all: ['(', optionally(commaSeparated(expression)), ')']}        
     ]),
-    componentsFromValue: node => [
-        node.target,
-        '(', 
-        node.input ? output.separated(node.input.value, ', ') : '',
-        ')'
-    ]
 }
 
-export const binaryExpression: NodeTextDescription<AST.CallExpressionNode> = (() => {
+export const binaryExpression: TextToValue<AST.CallExpressionNode> = (() => {
     
     const createConditionForOp = op => ({all: [expression, __, op, __, expression]});
     
     return {
         id: 'binaryExpression',
-        updateValueFromComponents: (components, prev) => {
+        valueFromComponents: (components) => {
 
-            if (!prev) {
-                prev = program.createNode({
-                    type: 'expressioncallExpression',
-                    _parent: null,
-                    target: null,
-                    input: null
-                })
-            }
+            const prev: AST.CallExpressionNode = {
+                type: 'expressioncallExpression',
+                _runtime: null,
+                target: null,
+                input: null
+            };
 
             const noWhiteSpace = flat(components).filter(c => !(typeof(c) === 'string' && c.trim().length === 0));
             const [lhs, rhs] = [noWhiteSpace[0], noWhiteSpace[2]];
@@ -546,20 +388,8 @@ export const binaryExpression: NodeTextDescription<AST.CallExpressionNode> = (()
         },
         getTextSpecs: () => [{or: 
             binaryOperators.map(createConditionForOp)
-        }],
-        componentsFromValue: node => {
-            const input = node.input as AST.ArrayLiteralNode;    
-            
-            return [
-                input.value[0], 
-                ' ',
-                (node.target as AST.Identifier).value,
-                ' ',
-                input.value[1]
-            ]
-        },
-        denyReparse: true
-    } as NodeTextDescription<AST.CallExpressionNode>
+        }]
+    } as TextToValue<AST.CallExpressionNode>
 })();
 
 const expressions = [
@@ -576,9 +406,9 @@ const expressions = [
     callExpression,    
 ];
 
-export const expression: TextDescription<AST.ExpressionType> = {
+export const expression: TextToValue<AST.ExpressionType> = {
     id: 'expressionType',
-    updateValueFromComponents: (components, prev) => {
+    valueFromComponents: (components) => {
         let val = flat(components);
         if (Array.isArray(val) && val[0] === '(') {
             val = val[1];
@@ -590,24 +420,17 @@ export const expression: TextDescription<AST.ExpressionType> = {
             {all: ['(', {or: expressions}, ')']},
             {or: expressions}
         ]}
-    ],
-    componentsFromValue: value => [
-        '(',
-        value,
-        ')'
     ]
 }
 
-export const assignment: NodeTextDescription<AST.AssignmentNode> = {
+export const assignment: TextToValue<AST.AssignmentNode> = {
     id: 'assignment',
-    updateValueFromComponents: (components, prev) => {
-        if (!prev) {
-            prev = program.createNode({
-                type: 'assignment',
-                _parent: null,
-                identifier: null,
-                valueExpression: null
-            })
+    valueFromComponents: (components) => {
+  
+        const prev: AST.AssignmentNode = {
+            type: 'assignment',
+            identifier: null,
+            valueExpression: null
         }
 
         prev.identifier = flat(components[0]) as AST.Identifier;
@@ -621,50 +444,46 @@ export const assignment: NodeTextDescription<AST.AssignmentNode> = {
         '=',
         __,
         expression
-    ],
-    componentsFromValue: node => [
-        node.identifier,
-        ' ',
-        '=',
-        ' ',
-        node.valueExpression
-    ],
-    coolComponentsFromValue: (node: AST.AssignmentNode) => {
-        return {
-            children: [
-                node.identifier,
-                ' ',
-                '=',
-                ' ',
-                node.valueExpression
-            ],
-            extras: [
-                {
-                    kind: 'resultViewer',
-                    node: node
-                }
-            ]
-        }
-    }
+    ]
 };
 
-export const typeDeclaration: NodeTextDescription<AST.TypeDeclaration> = {
-    id: 'typeDeclaration',
-    updateValueFromComponents: (components, prev) => {
-        
-        if (!prev) {
-            prev = program.createNode({
-                type: 'typeDeclaration',
-                _parent: null, // TODO: How are we going to make sure parent isn't null when first creating a node?
-                identifier: null,
-                typeExpression: null
-            });
-        }
+export const typeExpression: TextToValue<types.Type> = {
+    id: 'typeExpression',
+    valueFromComponents: (components) => {
 
-        prev.identifier = assignParent(flat(components[2]), prev);
-        prev.typeExpression = assignParent(flat(components.last()), prev);    
-        
-        return prev;
+        const identifier = flat(components[2]);
+        const expression = flat(components.last());   
+
+        function parseExpressionToType(expression: AST.ExpressionType) : types.Type {
+            if (expression.type === 'expressionarrayLiteral') {
+                return types.createArrayType(expression.value.map(val => parseExpressionToType(val)));
+            }
+            else if (expression.type === 'expressionmapLiteral') {
+                // TODO: Probs needs looking at
+                console.log('look at me.....');
+                return types.createMapType(expression.value);
+            }
+            else if (expression.type === 'expressionidentifier') {
+                return types.createReferenceType(expression.value);
+            }
+
+            console.error("Couldn't parse dat type boi");
+            return types.getAnyType();
+        }
+    
+        return parseExpressionToType(expression);
+    },
+    getTextSpecs: () => [
+        {or: [arrayLiteral, mapLiteral, identifier]}
+    ]
+};
+
+export const typeDeclaration: TextToValue<types.Type> = {
+    id: 'typeDeclaration',
+    valueFromComponents: (components) => {
+        const type  = flat(components.last()) as types.Type
+        type.identifier = flat(components[2]);
+        return type;
     },
     getTextSpecs: () => [
         'type',
@@ -673,21 +492,11 @@ export const typeDeclaration: NodeTextDescription<AST.TypeDeclaration> = {
         __,
         '=', 
         __, 
-        expression
-    ],
-    displayOptions: () => [null, null, null, null, null, null, null],
-    componentsFromValue: node => [
-        'type',
-        ' ',
-        node.identifier,
-        ' ',
-        '=',
-        ' ',
-        node.typeExpression
+        typeExpression
     ]
 };
 
-export const declaration: NodeTextDescription<AST.DeclarationNode> = (() => {
+export const declaration: TextToValue<AST.DeclarationNode> = (() => {
     const flagToText = flag => {
         return {
             'mutable' : 'mut',
@@ -697,40 +506,36 @@ export const declaration: NodeTextDescription<AST.DeclarationNode> = (() => {
 
     return {
         id: 'declaration',
-        updateValueFromComponents: (components, prev) => {
-            
-            if (!prev) {
-                prev = program.createNode({
-                    type: 'declaration',
-                    _parent: null, // TODO: How are we going to make sure parent isn't null when first creating a node?
-                    mutable: null,
-                    identifier: null,
-                    valueExpression: null,
-                    typeExpression: null
-                })
+        valueFromComponents: (components) => {
+        
+            const node: AST.DeclarationNode = {
+                type: 'declaration',
+                identifier: null,
+                valueExpression: null,
+                typeExpression: null,
+                flags: new Set()
             }
 
-            prev.flags = new Set();
             if ((flat(components[0]) || '').trim() === 'var') {
-                prev.flags.add('mutable');
+                node.flags.add('mutable');
             }
             else if ((flat(components[0]) || '').trim() === 'function') {
-                prev.flags.add('function');
+                node.flags.add('function');
             }
 
-            prev.identifier = assignParent(flat(components[2]), prev);
+            node.identifier = assignParent(flat(components[2]), node);
             
             const maybeTypeExpression = (flat(components[4]) || []) [2] as any;
             if (maybeTypeExpression) {
-                prev.typeExpression = assignParent(maybeTypeExpression, prev);
+                node.typeExpression = assignParent(maybeTypeExpression, node);
             }
 
             const maybeValueExpression = (flat(components[6]) || []) [2] as any;
             if (maybeValueExpression) {
-                prev.valueExpression = assignParent(maybeValueExpression, prev);
+                node.valueExpression = assignParent(maybeValueExpression, node);
             }
             
-            return prev;
+            return node;
         },
         getTextSpecs: () => [
             {or: ['let', 'mut', 'func']},
@@ -740,21 +545,11 @@ export const declaration: NodeTextDescription<AST.DeclarationNode> = (() => {
             {'?': {all: [':', __, expression]}}, // Type expression,
             __,
             {'?': {all: ['=', __, expression]}}, // Initial assignment
-        ],
-        displayOptions: () => [null, null, null, null, null, null, null],
-        componentsFromValue: node => [
-            node.flags.size > 0 ? flagToText(Array.from(node.flags)[0]) : 'let',
-            ' ',
-            node.identifier,
-            (node.typeExpression || node.valueExpression) ? ' ' : '',
-            node.typeExpression ? [': ', node.typeExpression] : null,
-            node.typeExpression ? ' ' : '',
-            node.valueExpression ? ['= ', node.valueExpression] : null,
         ]
     };
 })();
 
-export const theModule: NodeTextDescription<AST.ModuleNode> = {
+export const theModule: TextToValue<AST.ModuleNode> = {
     id: 'module',
     getTextSpecs: () => [
         'module', // 0
@@ -772,20 +567,14 @@ export const theModule: NodeTextDescription<AST.ModuleNode> = {
         __,
         '}' // 8
     ],
-    displayOptions() {
-        return [null, null, null, null, null, null, null, {breaksLine: true, tabsNextLine: -1}, null]
-    },
-    updateValueFromComponents: (components, prev) => {
-        let node = prev;
-        if (!node) {
-            node = program.createNode({
-                type: 'module',
-                _parent: null,
-                identifier: null,
-                version: '0.0.1', // TODO: Get the latest version that we're on right now
-                children: null
-            })
-        }
+    valueFromComponents: (components) => {
+
+        const node: AST.ModuleNode = {
+            type: 'module',
+            identifier: null,
+            version: '0.0.1', // TODO: Get the latest version that we're on right now
+            children: null
+        };       
 
         const children = flat(components[6]);
         if (Array.isArray(children)) {
@@ -798,18 +587,5 @@ export const theModule: NodeTextDescription<AST.ModuleNode> = {
         }
         node.identifier = assignParent(flat(components[2]), node);
         return node;
-    },
-    componentsFromValue: node => [
-        'module',
-        ' ',
-        node.identifier,
-        ' ',
-        '{',
-        '\n',
-        node.children.map(child => {
-            return [child, ';\n']
-        }) as any,
-        '',
-        '}'        
-    ]
+    }
 };

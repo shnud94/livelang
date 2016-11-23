@@ -57,7 +57,7 @@
     "react": "^15.3.2",
     "react-dom": "^15.3.2",
     "sync-promise": "^1.0.1",
-    "typescript": "^2.0.6",
+    "typescript": "^2.0.10",
     "underscore": "^1.8.3"
   }
 }

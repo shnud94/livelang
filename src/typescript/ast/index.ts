@@ -1,5 +1,6 @@
 import {EventSource} from '../util/events';
 import {Type} from '../types/index';
+import * as Types from '../types/index';
 import {RunTimeRepresentation} from '../interpreter/runtime/reps';
 
 export type CodeNodeType = string;
@@ -24,6 +25,7 @@ export type Nodes = AssignmentNode | DeclarationNode | ModuleNode | TypeDeclarat
 export interface CodeNode {
     _id?: string
     _runtime?: CodeNodeRuntime
+    _parent?: Nodes
 
     // Display options for different language frontends, line breaks in javascript, all that stuff
     display?: {
@@ -34,9 +36,6 @@ export interface CodeNode {
          */
         whitespace?: string
     }
-    
-
-    _parent: Nodes,    
 }
 
 export interface AssignmentNode extends CodeNode {
@@ -50,7 +49,7 @@ export interface DeclarationNode extends CodeNode {
     flags: Set<'mutable' | 'function'>
     identifier: Identifier,
     valueExpression?: ExpressionType,
-    typeExpression?: ExpressionType
+    typeExpression?: Type
 
 }
 
@@ -65,31 +64,9 @@ export interface TypeDeclaration extends CodeNode {
      * Every type must have a unique identifier not equal to one already created, which includes those that are preexisting such as
      * string, boolean, array, int32 etc. 
      */
-    identifier: Identifier,
-    
-    /**
-     * Type expressions can consist of existing type identifiers and modifiers
-     * 
-     * Top level types
-     * - Single field types, e.g: boolean, int32, string
-     * - Callable types: function
-     * - Array types i.e. [values]
-     * - Map types i.e. keys:values
-     * 
-     * Custom modifiers can be created, however some built-in modifiers:
-     * 
-     * ### Map types
-     * - Partial, any number of keys, but at least one
-     * - Only one key, or one specific key
-     * 
-     * Because we have a JavaScript runtime environment, we can modify types as we write code and
-     * get the result of each type at compile time using the javascript runtime. Then, use these types
-     * to compile into something lower-level
-     * 
-     * We use expression node here because it could be possible to use things like binary expressions to modify
-     * types such as unifying two types together with & etc.
-     */
-    typeExpression: ExpressionType 
+    typeExpression: Type & {
+        identifier: string
+    }
 }
 
 export type ExpressionType = Identifier | CallExpressionNode | MemberAccessExpression | FunctionAccessExpression | ArrayLiteralNode | NumericLiteralNode | MapLiteralNode | StringLiteralNode | CallableLiteral;
@@ -124,10 +101,10 @@ export interface FunctionAccessExpression extends CodeNode {
 export interface CallableLiteral extends CodeNode {
     type: 'expressioncallableLiteral'
 
-    input: {type: ExpressionType, identifier: string}[],
+    input: {type: Type, identifier: string}[],
     body: ModuleChild[]
 
-    output?: ExpressionType
+    output?: Type
     _runtime?: CodeNodeRuntime & {
         impl: (raw: RunTimeRepresentation<any>[]) => RunTimeRepresentation<any>
     }

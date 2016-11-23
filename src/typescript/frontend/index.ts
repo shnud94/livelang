@@ -20,6 +20,7 @@ export type TextSpec =
     | {'+': TextSpec} // 1-inf
 
     // Should be parsed as a value/node, as that's what we're describing
+    | TextToValue<any>    
     | TextDescription<any>    
 
 /**
@@ -61,6 +62,24 @@ breaksLine?: boolean,
     // -1: decrease tab
     tabsNextLine?: number 
 }
+
+
+export interface TextToValue<T> {
+    /**
+     * Used for the rule in the grammar
+     */
+    id: string,
+
+    /**
+     * Gets the textual description of a node as a list of specifications
+     * @see NodeTextSpec
+     * 
+     * Note: This has to be a function to avoid block scoped ordering issues
+     */
+    getTextSpecs: () => TextSpec[]
+    valueFromComponents(components: TextComponent[]) : T
+}
+
 
 export interface TextDescription<T> {
     /**

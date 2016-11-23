@@ -19,11 +19,15 @@ export function makeCallableDeclaration(identifier: string, argTypes: types.Type
 export function makeCallable(argTypes: types.Type[], returnType: types.Type, impl: reps.RunTimeFunction) : AST.CallableLiteral {
     return {
         type: 'expressioncallableLiteral',
-        input: argTypes.map((argType, index) => ({
-            type: AST.createIdentifier(argType.identifier),
-            identifier: '$' + index
-        })),
-        output: AST.createIdentifier(returnType.identifier),
+        input: argTypes.map((type, i) => {
+            return {
+                type,
+                // If we're progrmatically creating a function, we probably don't care about
+                // argument names, so we just use its numerical index
+                identifier: i.toString()
+            }
+        }),
+        output: returnType,
         _runtime: {
             impl: impl
         },
