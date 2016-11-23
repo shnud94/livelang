@@ -108,11 +108,3 @@ export interface TextDescription<T> {
      */
     denyReparse?: boolean
 }
-
-/**
- * Something that describes the textual representation of a node, both how it gets created
- * from text, and how it gets transformed back to text once it's in its node form
- */
-export interface NodeTextDescription<T extends AST.CodeNode> extends TextDescription<T> {    
-    displayOptions?: () => NodeTextDisplayOptions[]
-}

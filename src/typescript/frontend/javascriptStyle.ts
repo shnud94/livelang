@@ -5,9 +5,8 @@ import * as $ from 'jquery';
 import * as types from '../types/index';
 import 'fuzzyset.js';
 import * as index from './index';
-import {NodeTextController} from '../view/index';
 import * as View from '../view/index';
-import {TextToValue, TextDescription, NodeTextDescription, TextSpec} from './index';
+import {TextToValue, TextDescription, TextSpec} from './index';
 
 const frontendId = 'javascript';
 const justObjects = (something: any) => {

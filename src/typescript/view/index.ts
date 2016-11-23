@@ -4,11 +4,11 @@ import * as $ from 'jquery';
 import * as util from './util';
 import {EventSource} from '../util/events';
 import * as Frontend from '../frontend/index';
-import {NodeTextDescription, TextComponent} from '../frontend/index';
+import {TextComponent} from '../frontend/index';
 import {TypeCheckContext} from '../types/checker';
 import * as js from '../frontend/javascriptStyle';
 
-export type ComponentDescription = string | NodeTextController;
+export type ComponentDescription = string;
 
 export interface RenderContext {
     head?: HTMLElement,
@@ -56,19 +56,4 @@ export interface RenderResult {
         component: TextComponent,
         options: RenderOptions
     }[]
-}
-
-export interface NodeTextController {
-
-    node: AST.Nodes
-    description: NodeTextDescription<any>
-    events: NodeEvents
-
-    handleComponentChange(newValue: TextComponent, source: string) : ComponentChangeResponse
-
-    parentController?: NodeTextController
-    render: () => RenderResult
-
-    firstNode?: HTMLElement
-    lastNode?: HTMLElement 
 }

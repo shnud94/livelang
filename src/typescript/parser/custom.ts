@@ -1,4 +1,4 @@
-import {NodeTextDescription, TextSpec} from '../frontend/index';
+import {TextToValue, TextSpec} from '../frontend/index';
 import * as nearley from './nearley';
 import {Grammar} from 'nearley';
 import * as _ from 'underscore';
@@ -172,9 +172,9 @@ export const newGetRuleDefinitionForTextSpec = (spec: TextSpec, context: Grammar
     }    
 
     // Should return as a node
-    else if ((spec as NodeTextDescription<any>).id) {
+    else if ((spec as TextToValue<any>).id) {
 
-        const description = spec as NodeTextDescription<any>;
+        const description = spec as TextToValue<any>;
         if (context.rulesByName[description.id]) {
             return description.id;
         }
@@ -186,7 +186,7 @@ export const newGetRuleDefinitionForTextSpec = (spec: TextSpec, context: Grammar
         // Assume it's a node text description object
         const rule = description.getTextSpecs().map(spec => 
             newGetRuleDefinitionForTextSpec(spec, context, 0, description)
-        ).join(' ') + ' ' + callFunction(description.updateValueFromComponents, ['data'], context);
+        ).join(' ') + ' ' + callFunction(description.valueFromComponents, ['data'], context);
 
         context.rulesByName[description.id] = rule;
         return asNewRule(rule, context, false);

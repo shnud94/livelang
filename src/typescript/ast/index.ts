@@ -147,7 +147,7 @@ export interface CallExpressionNode extends CodeNode {
     }
 }
 
-export type ModuleChild = DeclarationNode | ExpressionType | AssignmentNode | TypeDeclaration | Scope | ModuleNode;
+export type ModuleChild = DeclarationNode | ExpressionType | AssignmentNode | Type | Scope | ModuleNode;
 export interface ModuleNode extends CodeNode {
     type: 'module',
 

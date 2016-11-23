@@ -531,22 +531,20 @@ export function resolveTypeByIdentifier(type: string | Type, typesByIdentifier: 
 export function gatherTypes(module: AST.ModuleNode, context: TypeCheckContext) : {[identifier: string] : Type} {
 
     function processChild(child: AST.ModuleChild) {
-        if (child.type === 'typeDeclaration') {
+        if (child.type === 'type' && child.identifier) {
 
-            const typeExpression = child.typeExpression;
-
-            if (context.typesByIdentifier[child.identifier.value]) {
+            if (context.typesByIdentifier[child.identifier]) {
                 console.error(`Declared same type twice with identifier ${child.identifier}`);
                 console.error(`Not doing anything about this now m8 but be warned l8r on you will experinese problmz`);
             }
-            context.typesByIdentifier[child.identifier.value] = typeExpression;            
+            context.typesByIdentifier[child.identifier] = child;            
         }
         if (child.type === 'scope' && child.flags.has('init')) {
 
             // This is where we could also run pre-type check interpreted stuff, like programatically adding types etc.
             child.children.forEach(initChild => {
                 // Allow type declarations in here too, no problmz
-                if (initChild.type === 'typeDeclaration') processChild(child);
+                if (initChild.type === 'type') processChild(child);
             });
         }
     }
