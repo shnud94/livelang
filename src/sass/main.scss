@@ -191,7 +191,6 @@ input {
 
     span.text {
         &, &:focus, &:active, &:hover {
-            border: 1px solid transparent;
             outline: none;
         }
     }
@@ -209,7 +208,7 @@ input {
                 border-color: $color-grey;
             }
             transition: border 0.5s;
-            border: 1px solid transparent;
+   
             position: relative;
             &:focus {
                 border-color: darken($color-grey, 10%);
