@@ -77,7 +77,7 @@ export const specParser = (spec: TextSpec) : (input: string) => Result<any> => {
         
         
         _.keys(creationContext.functions).forEach(key => {
-            grammar += `function ${key}(data) {return window._livelangNearley.${key}(data)} `
+            grammar += `function ${key}(data, location, reject) {return window._livelangNearley.${key}(data, location, reject)} `
         });
         grammar += "%}\n\n";
 
@@ -112,10 +112,11 @@ export const generateNearleyGrammarFromSpec = (spec: TextSpec) : string => {
     return grammar;
 }
 
-export const callFunction = (func: any, args: Array<any>, context: GrammarCreationContext) => {
+export const callFunction = (func: any, context: GrammarCreationContext) => {
     const keys = _.keys(context.functions);
     let funcName = 'func' + (keys.length + 1);
 
+    // If the function already exists, don't create another one
     for (let i = 0; i < keys.length; i++) {
         if (context.functions[keys[i]] === func) {
             funcName = keys[i];
@@ -124,7 +125,7 @@ export const callFunction = (func: any, args: Array<any>, context: GrammarCreati
     }
 
     context.functions[funcName] = func;
-    return `{% function(data) {return ${funcName}(${args.join(', ')});} %}`;
+    return `{% function(data, location, reject) {return ${funcName}(data, location, reject);} %}`;
 };
 
 export const sanitizeString = str => str.replace(/"/g, '\\"'); 
@@ -183,10 +184,19 @@ export const newGetRuleDefinitionForTextSpec = (spec: TextSpec, context: Grammar
         // do that as they're object references
         context.rulesByName[description.id] = 'inProgress';
 
+        function processParsedValue(data: any, location: number) {
+            const value = description.valueFromComponents(data)
+            value.source = {}
+            value.source.start = location
+            value.source.length = _.flatten(data).join('').length
+            value.source.end = value.source.start + value.source.length
+            return value;
+        }
+
         // Assume it's a node text description object
         const rule = description.getTextSpecs().map(spec => 
             newGetRuleDefinitionForTextSpec(spec, context, 0, description)
-        ).join(' ') + ' ' + callFunction(description.valueFromComponents, ['data'], context);
+        ).join(' ') + ' ' + callFunction(processParsedValue, context);
 
         context.rulesByName[description.id] = rule;
         return asNewRule(rule, context, false);
