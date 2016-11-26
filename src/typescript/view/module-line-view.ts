@@ -9,19 +9,16 @@ import * as checker from '../types/checker';
 import * as types from '../types/index';
 import * as _ from 'underscore';
 import * as $ from 'jquery';
+import * as project from '../project/project';
 
 interface ProgramLineViewOptions {
     onSuccessfulChange?()
 }
 
-export function create(rootNode: AST.Nodes, container: HTMLElement, options: ProgramLineViewOptions) {
+export function create(moduleHandle: project.ModuleHandle, container: HTMLElement, options: ProgramLineViewOptions) {
     $(container).empty();
 
-    const lineView = LineView.create(container, {
-        onElementChange(value, previous, data) {
-
-        }
-    }, () => [{content: 'some content!!!!!'}])
+    const lineView = LineView.create(container, {onElementChange(value, previous, data) {}}, () => [{content: moduleHandle.content}])
 
     $(container).keyup(event => {
         if (!event.ctrlKey || event.keyCode !== 13) {
@@ -30,16 +27,12 @@ export function create(rootNode: AST.Nodes, container: HTMLElement, options: Pro
         else {
             event.preventDefault();
             const text = lineView.getAllText();
-            const wholeParseResult = parser.parseSpecCached(textDesc.theModule, lineView.getAllText(), textDesc.theModule.id);
+            const parsedModule = parser.parseSpecCached(textDesc.theModule, lineView.getAllText(), textDesc.theModule.id);
 
-            if (wholeParseResult.result) {
+            if (parsedModule.result) {
 
-                const module = ASTUtil.nearestModule(rootNode);
-                if (!module) {
-                    console.warn("Couldn't find a module to execute");
-                    return;
-                }
-                else {
+                const module = parsedModule.result;
+    
                     const contextAfterRun = interpreter.evaluateModule(module);
                     const {typeCheckContext} = contextAfterRun;
 
@@ -121,7 +114,7 @@ export function create(rootNode: AST.Nodes, container: HTMLElement, options: Pro
                     
                 }
             }  
-        }
+        
     })
 
     return {

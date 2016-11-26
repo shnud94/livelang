@@ -1,5 +1,4 @@
 import '../prototype/index';
-import * as programLineView from '../view/programLineView';
 import * as AST from '../ast/index';
 import * as fs from 'fs';
 import * as program from '../program';
@@ -19,7 +18,8 @@ interface GlobalSettings {
     userhome: string
 }
 export interface ModuleHandle {
-    root: AST.ModuleNode,
+    content: string,
+    _savedContent
 
     // For now tied to storage on hard disk, later on change things so we can store these wherever?
     filename: string
@@ -77,30 +77,24 @@ export class LiveLangProject {
     }
 
     getHandleFromFile(filename: string) : ModuleHandle | null {
-        function loadFile() : AST.ModuleNode | null {
-            const data = fs.readFileSync(filename).toString();
-            if (!data.length) return null;
-
-            try {
-                return JSON.parse(data);
-            } catch (e) {
-                console.error(`error loading ${filename}: ` + e);
-                return null;
-            }
+        function loadFile() : string {
+            return fs.readFileSync(filename).toString();
         }    
 
         const handle = {
-            root: loadFile(),
+            content: loadFile(),
             filename,
+            _savedContent: loadFile(),
             reload() {
-                handle.root = loadFile();
+                handle.content = loadFile();
             },
             save() {
-                fs.writeFileSync(filename, program.nodeToJSON(handle.root));
+                fs.writeFileSync(filename, handle.content);
+                handle._savedContent = handle.content;
             }
         };
 
-        if (!handle || !handle.root) return null;
+        if (!handle || !handle.content) return null;
 
         const watcher = chokidar.watch(filename, {
           persistent: true

@@ -12,22 +12,22 @@ export interface LineElement<T> {
     immutable? : boolean,
     classNames?: string
 }
-interface LineElementDomData {
+export interface LineElementDomData {
     info: LineElementInfo,
     data: any,
     ids?: string[]
 }
 
-interface LineElementInfo {
+export interface LineElementInfo {
     first: HTMLElement,
     last: HTMLElement
 }
 
-interface DecorationOptions {
+export interface DecorationOptions {
     type: 'lineStart'|'lineEnd'|'below'
 }
 
-type LineView<ElementType> = {
+export type LineView<ElementType> = {
     renderAll()
     getAllText() : string
     getElementsWithId(id: string) : HTMLElement[],
@@ -57,6 +57,7 @@ function getLineData(element: JQuery) {
 }
 interface LineViewOptions<ElementType> {
     onElementChange?(now: string, previous: string, data: ElementType)
+    onContentChange?()
 }
 
 function getDomData(el: HTMLElement) : LineElementDomData {
@@ -233,6 +234,9 @@ function changed<T>(textElement: HTMLElement, previous: string, options: LineVie
         const data = getDomData(textElement);
         const text = textInElementRange(data.info);
         options.onElementChange(text, null, data.data);
+    }
+    if (options.onContentChange) {
+        options.onContentChange();
     }
 }
 

@@ -6,7 +6,7 @@ import * as _ from 'underscore';
 import {CommandWindow, Command} from './command-window';
 import keys from '../util/keys';
 import * as $ from 'jquery';
-import * as programLineView from '../programLineView';
+import * as programLineView from '../module-line-view';
 import {ModuleView} from './module-view';
 
 var count = 0;
