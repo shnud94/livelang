@@ -16,7 +16,7 @@ export interface TypeBase extends AST.CodeNode {
    identifier?: string
 }
 
-export type Type = TypeBase & (AndType | OrType | FunctionType | MapType | ArrayType | ReferenceType | AnyType | GenericType);
+export type Type = TypeBase & (AndType | OrType | FunctionType | MapType | ArrayType | ReferenceType | AnyType | GenericType | UnresolvedType);
 
 /**
  * Matches anything - can only really be used in dynamic runtimes
@@ -63,6 +63,11 @@ export interface ReferenceType extends TypeBase {
 export interface MapType extends TypeBase {
     kind: 'map'
     map: {[key: string] : Type}
+}
+
+export interface UnresolvedType extends TypeBase {
+    kind: 'unresolved',
+    dependants: any[]
 }
 
 export interface ArrayType extends TypeBase {

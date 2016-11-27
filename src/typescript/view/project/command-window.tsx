@@ -4,7 +4,7 @@ import * as project from '../../project/project';
 import * as immutable from 'immutable';
 import * as _ from 'underscore';
 const Fuse = require('fuse.js');
-import {ProjectViewProps} from './project-view';
+import { ProjectViewProps } from './project-view';
 import keys from '../util/keys';
 
 interface CommandWindowState {
@@ -13,8 +13,13 @@ interface CommandWindowState {
 }
 export interface Command {
     name: string,
-    doer: Function
+    doer: (command: string) => void
     type: "file" | "command"
+}
+
+export interface CommandCommand extends Command {
+    type: "command"
+    matcher: (command: string) => void
 }
 
 export interface CommandWindowProps extends ProjectViewProps {
@@ -32,10 +37,10 @@ export class CommandWindow extends React.Component<CommandWindowProps, CommandWi
             query: '',
             selectedListIndex: 0
         }
-        this.fused = new Fuse(this.props.commands, {keys:['name']})
+        this.fused = new Fuse(this.props.commands, { keys: ['name'] })
     }
 
-    getResults() : Command[] {
+    getResults(): Command[] {
         return this.state.query.length ? this.fused.search(this.state.query) : [];
     }
 
@@ -46,7 +51,7 @@ export class CommandWindow extends React.Component<CommandWindowProps, CommandWi
 
         if (event.keyCode === keys.RETURN) {
             const result = results[this.state.selectedListIndex];
-            if (result) result.doer();
+            if (result) result.doer(value);
             this.props.onClose();
         }
         else if (keyCode === keys.UP_ARROW || keyCode === keys.DOWN_ARROW) {
@@ -64,14 +69,14 @@ export class CommandWindow extends React.Component<CommandWindowProps, CommandWi
         }
     }
 
-    render() : JSX.Element {
+    render(): JSX.Element {
         const resultsHtml = this.getResults().map((result, index) => {
             return <div className={`result ${this.state.selectedListIndex === index ? '-selected' : ''}`}>
                 ${result.name}
             </div>
         });
         const resultsWrap = resultsHtml.length ? <div className={`results ${resultsHtml.length ? '-some' : '-none'}`}>
-                {resultsHtml}
+            {resultsHtml}
         </div> : <div className="no-results">No results</div>;
 
         return <div className={`command-window`}>

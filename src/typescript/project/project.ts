@@ -9,8 +9,8 @@ import * as projectView from '../view/project/project-view';
 import * as $ from 'jquery';
 
 interface SerializedProject {
-  rootDir?: string,
-  openFiles: string[]
+    rootDir?: string,
+    openFiles: string[]
 }
 interface GlobalSettings {
     node_modules: string,
@@ -29,28 +29,28 @@ export interface ModuleHandle {
 
 export class LiveLangProject {
 
-    private openModules: {[path: string]: ModuleHandle} = {}
+    private openModules: { [path: string]: ModuleHandle } = {}
     rootDir: string
 
-    static getGlobalSettings() : GlobalSettings {
+    static getGlobalSettings(): GlobalSettings {
         return {
             node_modules: '',
             tmp: '/tmp',
             userhome: '/Users/andrewshand'
         }
-    } 
+    }
 
     constructor(private project: SerializedProject) {
         this.rootDir = project.rootDir;
 
         const watcher = chokidar.watch(this.rootDir, {
-          persistent: true,
-          alwaysStat: true,
-          ignored: /[\/\\]\./
+            persistent: true,
+            alwaysStat: true,
+            ignored: /[\/\\]\./
         });
 
-        // Only really applicable to when things are being 
-        // stored in a standard filesystem but oh well. Cross dat 
+        // Only really applicable to when things are being
+        // stored in a standard filesystem but oh well. Cross dat
         // bridge when we come to it
         watcher.on('add', (path, stat) => {
             if (!stat.isDirectory()) {
@@ -76,10 +76,14 @@ export class LiveLangProject {
         // don't do anything with this just yet, nothing to really config...
     }
 
-    getHandleFromFile(filename: string) : ModuleHandle | null {
-        function loadFile() : string {
+    createNewFile(filename: string) {
+        fs.writeFileSync(path.join(this.rootDir, filename), '');
+    }
+
+    getHandleFromFile(filename: string): ModuleHandle | null {
+        function loadFile(): string {
             return fs.readFileSync(filename).toString();
-        }    
+        }
 
         const handle = {
             content: loadFile(),
@@ -94,10 +98,8 @@ export class LiveLangProject {
             }
         };
 
-        if (!handle || !handle.content) return null;
-
         const watcher = chokidar.watch(filename, {
-          persistent: true
+            persistent: true
         });
 
         watcher.on('change', path => {
@@ -106,13 +108,13 @@ export class LiveLangProject {
         }).on('unlink', path => {
 
             watcher.close();
-            delete this.openModules[path];   
+            delete this.openModules[path];
         });
 
         return handle;
     }
 
-    getAllModules() : ModuleHandle[] {
+    getAllModules(): ModuleHandle[] {
         return _.values(this.openModules);
     }
 }

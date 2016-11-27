@@ -3,11 +3,11 @@ import * as ReactDOM from 'react-dom';
 import * as project from '../../project/project';
 import * as immutable from 'immutable';
 import * as _ from 'underscore';
-import {CommandWindow, Command} from './command-window';
+import { CommandWindow, Command } from './command-window';
 import keys from '../util/keys';
 import * as $ from 'jquery';
 import * as programLineView from '../module-line-view';
-import {ModuleView} from './module-view';
+import { ModuleView } from './module-view';
 
 var count = 0;
 export function mount(element: HTMLElement, project: project.LiveLangProject) {
@@ -29,6 +29,7 @@ export interface ProjectViewState {
 
 export class ProjectView extends React.Component<ProjectViewProps, ProjectViewState> {
 
+    _lastCreatedFile: string
     lastOpenFile?: project.ModuleHandle
 
     constructor(props: ProjectViewProps) {
@@ -40,9 +41,16 @@ export class ProjectView extends React.Component<ProjectViewProps, ProjectViewSt
         }
         $('title')[0].innerText = props.project.rootDir
     }
-    
+
     componentWillReceiveProps(newProps: ProjectViewProps) {
         this.setState(s => {
+
+            if (this._lastCreatedFile) {
+                const handle = newProps.project.getAllModules().filter(mod => mod.filename.indexOf(this._lastCreatedFile) >= 0)[0];
+                if (handle) {
+                    s.openFile = handle;
+                }
+            }
             s.commands = this.getCommands(newProps.project)
             return s;
         });
@@ -67,20 +75,33 @@ export class ProjectView extends React.Component<ProjectViewProps, ProjectViewSt
         }
     }
 
-    getCommands(project: project.LiveLangProject) : Command[] {
-        const fileOpens: Command[] = this.props.project.getAllModules().map(module => {
+    getCommands<T extends Command>(project: project.LiveLangProject): T[] {
+        const fileOpens: T[] = this.props.project.getAllModules().map(module => {
             return {
                 name: module.filename,
-                type: "file" as "file",
-                doer: () => {
+                type: "file",
+                doer: (command: string) => {
                     this.setState(s => {
                         s.openFile = module;
                         return s;
                     });
                 }
-            }
+            } as T
         });
-        return fileOpens;
+
+        const commands = [].concat(fileOpens);
+        commands.push({
+            name: 'New file',
+            type: "command",
+            doer: command => {
+                const filename = command.split(' ')[1];
+                this._lastCreatedFile = filename;
+                this.props.project.createNewFile(filename);
+            },
+            matcher: command => command.startsWith('new')
+        })
+
+        return commands;
     }
 
     onKeyUp(event: KeyboardEvent) {
@@ -95,8 +116,6 @@ export class ProjectView extends React.Component<ProjectViewProps, ProjectViewSt
         }
     }
 
-    
-
     onCommandWindowClose() {
         this.setState(s => {
             s.commandWindowOpen = false;
@@ -104,13 +123,13 @@ export class ProjectView extends React.Component<ProjectViewProps, ProjectViewSt
         });
     }
 
-    render() : JSX.Element {
+    render(): JSX.Element {
         const commandWindowProps = _.extend({
             onClose: this.onCommandWindowClose.bind(this),
             open: this.state.commandWindowOpen,
             commands: this.state.commands
         }, this.props);
-        
+
         return <div className="project-view">
             {this.state.commandWindowOpen && React.createElement(CommandWindow, commandWindowProps)}
 
