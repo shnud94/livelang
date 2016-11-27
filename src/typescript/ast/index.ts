@@ -21,7 +21,6 @@ interface CodeNodeRuntime {
 
 export type Nodes = AssignmentNode | DeclarationNode | ModuleNode | TypeDeclaration | Identifier | CallExpressionNode | MemberAccessExpression | ExpressionType | MapLiteralNode | ReturnStatement;
 
-
 export interface CodeNode {
     _id?: string
     _runtime?: CodeNodeRuntime
@@ -35,6 +34,12 @@ export interface CodeNode {
          * Any whitespace before this node
          */
         whitespace?: string
+    },
+
+    source?: {
+        start: number,
+        length: number,
+        end: number
     }
 }
 

@@ -10,7 +10,18 @@ import * as numbers from '../interpreter/lib/number';
 import * as arrays from '../interpreter/lib/array';
 
 
-export type TypeCheckError = TypeMismatchError | TypeErrorVague; 
+export type TypeCheckError = TypeMismatchError | TypeErrorVague | TypeErrorUndefined | GenericError; 
+
+export type GenericError = {
+    kind: 'generic',
+    source: AST.Nodes,
+    error: string
+}
+
+export type TypeErrorUndefined = {
+    kind: 'typeUndefined',
+    source: AST.Identifier
+}
 
 export interface TypeErrorVague {
     kind: 'typeError',
@@ -40,14 +51,14 @@ type Scope = {
  * With some declarations, such as functions, it is valid to have multiple declarations with the same identifier. These are distinguised
  * by their type parameters. This should probably only really be used for that purpose
  */
-export function resolveMultipleDeclarationsByIdentifier(identifier: string, scope: Scope) : AST.DeclarationNode[] {
+export function resolveMultipleDeclarationsByIdentifier(identifier: string, context: TypeCheckContext, scope: Scope) : AST.DeclarationNode[] {
     if (!scope) return null;        
     if (scope.declarationsByIdentifier[identifier]) return scope.declarationsByIdentifier[identifier];
-    return resolveMultipleDeclarationsByIdentifier(identifier, scope.parent);
+    return resolveMultipleDeclarationsByIdentifier(identifier, context, scope.parent);
 }
 
-export function resolveDeclarationByIdentifier(identifier: string, scope: Scope) : AST.DeclarationNode {
-    const all = resolveMultipleDeclarationsByIdentifier(identifier, scope);
+export function resolveDeclarationByIdentifier(identifier: string, context: TypeCheckContext, scope: Scope) : AST.DeclarationNode {
+    const all = resolveMultipleDeclarationsByIdentifier(identifier, context, scope);
     if (all && all.length > 0) return all[0];
     return null;
 }
@@ -55,16 +66,16 @@ export function resolveDeclarationByIdentifier(identifier: string, scope: Scope)
 export function getDeclarationSources(declaration: AST.DeclarationNode, scope: Scope, context: TypeCheckContext) : AST.DeclarationNode[] {
     if (declaration.valueExpression.type === 'expressionidentifier') {
         const identifier = declaration.valueExpression.value;
-        const decs = resolveMultipleDeclarationsByIdentifier(identifier, scope);
+        const decs = resolveMultipleDeclarationsByIdentifier(identifier, context, scope);
         return _.flatten(decs.map(dec => getDeclarationSources(declaration, scope, context)));
     }
     return [declaration];
 }
 
-export function findMatchingFunction(identifier: string, args: Type, scope: Scope, context: TypeCheckContext, autocurry: boolean = true) : AST.CallableLiteral | null {
-    const decs = resolveMultipleDeclarationsByIdentifier(identifier, scope);
+export function findMatchingFunction(identifier: string, args: Type, scope: Scope, context: ModuleTypeCheckContext, autocurry: boolean = true) : AST.CallableLiteral | null {
+    const decs = resolveMultipleDeclarationsByIdentifier(identifier, context.typeCheckContext, scope);
     // Some declarations could be identifiers referring to a still earlier declaration, find the source!
-    const sourceDecs = _.flatten(decs.map(d => getDeclarationSources(d, scope, context))) as AST.DeclarationNode[];
+    const sourceDecs = _.flatten(decs.map(d => getDeclarationSources(d, scope, context.typeCheckContext))) as AST.DeclarationNode[];
 
     for (let i = 0; i < sourceDecs.length; i++) {
         const dec = sourceDecs[i];
@@ -109,7 +120,7 @@ export function seedTypeCheckContext(context: TypeCheckContext) {
     _.extend(context.typesByIdentifier, b);    
 }
 
-export function typeCheckModule(module: AST.ModuleNode, context?: TypeCheckContext) : TypeCheckContext {
+export function typeCheckModule(module: AST.ModuleNode, context?: ModuleTypeCheckContext) : {context: ModuleTypeCheckContext, type: MapType} {
 
     const rootScope: Scope = {
         children: [],
@@ -118,16 +129,27 @@ export function typeCheckModule(module: AST.ModuleNode, context?: TypeCheckConte
 
     if (!context) {
         context = {
-            errors: [],
+            module,
             rootScope: rootScope,
-            resolveType: identifier => resolveTypeByIdentifier(identifier, context.typesByIdentifier),
-            typesByIdentifier: {},
-            warnings: []
-        };
-    }
+            typeCheckContext: {
+                modules: [context],
+                modulesByIdentifier() {
+                    const c = context as any;
+                    if (!c._modulesByIdentifier) {
+                        c._modulesByIdentifier = _.indexBy(context.typeCheckContext.modules, module => module.module.identifier.value)
+                    }
+                    return c._modulesByIdentifier;
+                },
+                errors: [],
+                resolveType: identifier => resolveTypeByIdentifier(identifier, context.typeCheckContext.typesByIdentifier),
+                warnings: [],
+                typesByIdentifier: {},
+            }
+        }
 
-    seedTypeCheckContext(context);
-    gatherTypes(module, context);
+        seedTypeCheckContext(context.typeCheckContext);
+        gatherTypes(module, context.typeCheckContext);
+    }    
 
     function processChild(child: AST.ModuleChild) {
         if (child.type.startsWith('expression')) {
@@ -157,7 +179,7 @@ export function typeCheckModule(module: AST.ModuleNode, context?: TypeCheckConte
     
     module.children.forEach(processChild);
 
-    return context;
+    return {context, type: null};
 }
 
 // Think this is just for checking assignment
@@ -218,6 +240,14 @@ export function typesMatch(dest: Type, source: Type) : boolean {
     return false;
 }
 
+export function genericError(error: string, source: AST.Nodes) : GenericError {
+    return {
+        kind: 'generic',
+        error,
+        source
+    }
+}
+
 export function createError(error: string, nodes: AST.CodeNode[] = []) : TypeErrorVague {
     return {
         kind: 'typeError',
@@ -226,15 +256,18 @@ export function createError(error: string, nodes: AST.CodeNode[] = []) : TypeErr
     }
 }
 
-export interface TypeCheckContext extends TypeCreationContext {
+export interface ModuleTypeCheckContext {
+    typeCheckContext: TypeCheckContext
+    module: AST.ModuleNode
     rootScope: Scope
+}
+
+export interface TypeCheckContext {
+    modules: ModuleTypeCheckContext[]
+    modulesByIdentifier: () => {[identifier: string] : ModuleTypeCheckContext}
     resolveType: (identifier: Type) => Type | null
     errors: TypeCheckError[]
     warnings: TypeCheckError[]
-}
-
-interface TypeCreationContext {
-
     /**
      * Not able to identify every type straight away,
      * while searching through we may find types that refer to other types
@@ -243,19 +276,20 @@ interface TypeCreationContext {
     typesByIdentifier: {[identifier: string]: Type | string}
 }
 
-export function typeCheckDeclaration(declaration: AST.DeclarationNode, context: TypeCheckContext, scope: Scope) : Type {
+export function typeCheckDeclaration(declaration: AST.DeclarationNode, context: ModuleTypeCheckContext, scope: Scope) : Type {
 
+    const typeCheckContext = context.typeCheckContext;
     let declarationType: Type;
 
     if (declaration.typeExpression && !declaration.flags.has('function')) { // Function types are always inferred automatically
-        declarationType = context.resolveType(declaration.typeExpression);
+        declarationType = typeCheckContext.resolveType(declaration.typeExpression);
     }
 
     if (declaration.valueExpression) {
         let expressionType = typeCheckExpression(declaration.valueExpression, context, scope);
         const match = typesMatch(declarationType || getAnyType(), expressionType);
         if (!match) {
-            context.errors.push({
+            typeCheckContext.errors.push({
                 kind: 'typeMismatchError',
                 lhs: {
                     type: declarationType,
@@ -272,13 +306,13 @@ export function typeCheckDeclaration(declaration: AST.DeclarationNode, context: 
     }
 
     if (!declaration.typeExpression && !declaration.valueExpression) {
-        context.warnings.push(createError('Unable to infer any type for identifier', [declaration]));
+        typeCheckContext.warnings.push(createError('Unable to infer any type for identifier', [declaration]));
     }
 
     declarationType = declarationType || getAnyType();
     declaration._runtime = declaration._runtime || {};
     declaration._runtime.type = declarationType;
-    const existing = resolveMultipleDeclarationsByIdentifier(declaration.identifier.value, scope);
+    const existing = resolveMultipleDeclarationsByIdentifier(declaration.identifier.value, typeCheckContext, scope);
 
     if (existing) {
         if (declaration.flags.has('function')) {
@@ -291,13 +325,13 @@ export function typeCheckDeclaration(declaration: AST.DeclarationNode, context: 
 
                     // Make sure types are not assignable, i.e. all are unique
                     const match = typesMatch(declaration._runtime.type, other._runtime.type);
-                    if (match) context.errors.push(createError('Ambiguous function declaration, types identical', [declaration, other]));
+                    if (match) typeCheckContext.errors.push(createError('Ambiguous function declaration, types identical', [declaration, other]));
                     return !match;
                 });
             });
         }
         else {
-            context.errors.push(createError(`Duplicate identifier '${declaration.identifier}, all but 1st ignored'`));
+            typeCheckContext.errors.push(createError(`Duplicate identifier '${declaration.identifier}, all but 1st ignored'`));
         }
     }
     else {
@@ -308,15 +342,16 @@ export function typeCheckDeclaration(declaration: AST.DeclarationNode, context: 
     return declarationType
 }
 
-export function typeCheckAssignment(assignment: AST.AssignmentNode, context: TypeCheckContext, scope: Scope) : Type {
+export function typeCheckAssignment(assignment: AST.AssignmentNode, modContext: ModuleTypeCheckContext, scope: Scope) : Type {
     
-     const declaration = resolveDeclarationByIdentifier(assignment.identifier.value, scope);
+     const context = modContext.typeCheckContext;
+     const declaration = resolveDeclarationByIdentifier(assignment.identifier.value, context, scope);
      if (!declaration) {
          context.errors.push(createError(`Unable to find variable ${assignment.identifier} to assign to`));
      }
 
      const decType = declaration._runtime.type || getAnyType();
-     const expressionType = typeCheckExpression(assignment.valueExpression, context, scope);
+     const expressionType = typeCheckExpression(assignment.valueExpression, modContext, scope);
 
      const match = typesMatch(decType, expressionType);
      if (!match) {
@@ -326,9 +361,9 @@ export function typeCheckAssignment(assignment: AST.AssignmentNode, context: Typ
      return declaration._runtime.type;
 }
 
-export function resolveFunctionByIdentifier(identifier: string, match: {inputType?: Type, outputType?: Type}, context: TypeCheckContext, scope: Scope) : AST.CallableLiteral {
+export function resolveFunctionByIdentifier(identifier: string, match: {inputType?: Type, outputType?: Type}, context: ModuleTypeCheckContext, scope: Scope) : AST.CallableLiteral {
     // We assume all of these are callable literals, but they could not be, TODO: fix
-    const found = resolveMultipleDeclarationsByIdentifier(identifier, scope);
+    const found = resolveMultipleDeclarationsByIdentifier(identifier, context.typeCheckContext, scope);
 
     if (!found || found.length === 0) return null;
 
@@ -345,32 +380,38 @@ export function resolveFunctionByIdentifier(identifier: string, match: {inputTyp
     });
 
     if (matches.length > 1) {
-        context.errors.push(createError('Function call is ambiguous'));
+        context.typeCheckContext.errors.push(createError('Function call is ambiguous'));
         return null;
     }
     if (matches.length === 0) { 
-        context.errors.push(createError('Function has no matching input'));
+        context.typeCheckContext.errors.push(createError('Function has no matching input'));
         return null;
     }
     return matches[0].valueExpression as AST.CallableLiteral;
 }
 
-export function typeCheckExpression(expression: AST.ExpressionType, context: TypeCheckContext, scope: Scope) : Type {
+export function typeCheckExpression(expression: AST.ExpressionType, modContext: ModuleTypeCheckContext, scope: Scope) : Type {
     if (!expression) {
         return b.null;
     }
 
+    const context = modContext.typeCheckContext;
     function getType() {
         
         if (expression.type === 'expressionidentifier') {
         
+            // Strings of value false and true always resolve to type boolean
             if (expression.value === 'false' || expression.value === 'true') return b.boolean;
-            const resolved = resolveDeclarationByIdentifier(expression.value, scope);
+
+            const resolved = resolveDeclarationByIdentifier(expression.value, context, scope);
+            
+            // If we were able to resolve the type, i.e. it had been declared elsewhere, we can return
+            // that resolved type
             if (resolved && resolved._runtime.type) {
                 return resolved._runtime.type;
             }   
             else {
-                context.errors.push(createError(`Couldn't resolve type of $0`, [expression]));
+                context.errors.push({kind: 'typeUndefined', source: expression});
                 return getAnyType();
             }     
         }
@@ -378,7 +419,7 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
 
             const array = expression.value;
             // return array of most common parent type if possible
-            const childTypes = array.map(expression => typeCheckExpression(expression, context, scope));
+            const childTypes = array.map(expression => typeCheckExpression(expression, modContext, scope));
 
             // let allAssignable = true;
             // const sameType = childTypes.reduce((prev, curr) => {
@@ -408,7 +449,7 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
             
             // Map literal
             return createMapType(util.mapObj(expression.value, (key, val) => {
-                return [key, typeCheckExpression(val, context, scope)]
+                return [key, typeCheckExpression(val, modContext, scope)]
             }))
         }
         else if (expression.type === 'expressionstringLiteral') {
@@ -416,7 +457,7 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
         }
         else if (expression.type === 'expressioncallExpression') {
 
-            const inputType = typeCheckExpression(expression.input, context, scope);
+            const inputType = typeCheckExpression(expression.input, modContext, scope);
 
             // We resolve the callable here, why? We mostly want to do everything we can
             // in the type checking phase. Otherwise we defer until interpreter phase, which really
@@ -425,11 +466,31 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
             let callable: AST.CallableLiteral;
 
             if (expression.target.type === 'expressionidentifier') {
-                callable = resolveFunctionByIdentifier(expression.target.value, {inputType: inputType}, context, scope);
-                functionType = typeCheckExpression(callable, context, scope) as FunctionType;
+
+                // Special functions
+                if (expression.target.value === 'import') {
+
+                    // Importing another module resolves to the type of that module
+                    const arg = expression.input.value[0];
+                    if (!arg || arg.type !== 'expressionIdentifier') {
+                        context.errors.push(genericError('Must specify a module to import', expression));
+                        return getAnyType();
+                    }
+                    
+                    const identifier = arg as AST.Identifier;
+                    const mod = context.modulesByIdentifier()[identifier.value];
+
+                    if (!mod) {
+                        context.errors.push(genericError(`Couldn't find a module named ${identifier.value}`, identifier));
+                        return getAnyType();
+                    }                    
+                }
+
+                callable = resolveFunctionByIdentifier(expression.target.value, {inputType}, modContext, scope);
+                functionType = typeCheckExpression(callable, modContext, scope) as FunctionType;
             }       
             else {
-                functionType = typeCheckExpression(expression.target, context, scope) as FunctionType;
+                functionType = typeCheckExpression(expression.target, modContext, scope) as FunctionType;
             }
             
             const checkFunction = (inputType: Type, func: FunctionType) => {
@@ -454,8 +515,8 @@ export function typeCheckExpression(expression: AST.ExpressionType, context: Typ
         }
         else if (expression.type === 'expressionmemberAccess') {
 
-            const checkSubject = typeCheckExpression(expression.subject, context, scope);
-            const memberType = typeCheckExpression(expression.member, context, scope);
+            const checkSubject = typeCheckExpression(expression.subject, modContext, scope);
+            const memberType = typeCheckExpression(expression.member, modContext, scope);
 
             if (checkSubject.kind === 'any') return getAnyType();
 
