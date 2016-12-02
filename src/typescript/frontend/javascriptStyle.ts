@@ -63,8 +63,8 @@ function commaSeparated(spec: TextSpec) : TextSpec {
 
 const binaryOperators = ['*', '/', '+', '-', '>', '<', '>=', '<=', '==', '!=', '&&', '||'];
 const binaryOpSet = new Set(binaryOperators);
-const __ = {'*': {charset: ' \xA0\\t\\n\\v\\f'}};
-const ___ = {'+': {charset: ' \xA0\\t\\n\\v\\f'}};
+const __ = {'*': {charset: ' \xA0\\t\\n\\r\\v\\f'}};
+const ___ = {'+': {charset: ' \xA0\\t\\n\\r\\v\\f'}};
 
 export const identifier: TextToValue<AST.Identifier> = {
     id: 'identifier',
