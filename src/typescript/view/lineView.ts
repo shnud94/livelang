@@ -234,6 +234,7 @@ function changed<T>(textElement: HTMLElement, previous: string, options: LineVie
 
 export function create<T>(container: HTMLElement, options: LineViewOptions<T>, elementCallback: () => LineElement<T>[]): LineView<T> {
 
+    $(container).empty();
     const wrap = $('<div>').addClass('line-view').css('position', 'relative');
     const nodesById: { [id: string]: Set<HTMLElement> } = {};
     const observer = new MutationObserver(mutations => {
@@ -436,7 +437,7 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
 
         lineContainer.empty();
         lines = [];
-        const elements = elementCallback();
+        let elements = elementCallback();
 
         function thisLine() {
             if (lines.length === 0) startNewLine();
@@ -455,6 +456,11 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
             }).attr('contentEditable', String(lineElement.immutable !== true));
         }
 
+        // Make sure we have at least something to edit or no lines will appear
+        if (elements.length === 0) {
+            elements = [{content: ''}];
+        }
+        
         elements.forEach(lineElement => {            
             if (typeof (lineElement.content) === 'string') {
                 let split = lineElement.content

@@ -8,6 +8,7 @@ import keys from '../util/keys';
 import * as $ from 'jquery';
 import * as programLineView from '../module-line-view';
 import { ModuleView } from './module-view';
+import * as moment from 'moment';
 
 var count = 0;
 export function mount(element: HTMLElement, project: project.LiveLangProject) {
@@ -30,6 +31,7 @@ export interface ProjectViewState {
 export class ProjectView extends React.Component<ProjectViewProps, ProjectViewState> {
 
     _lastCreatedFile: string
+    _lastKeyUp: moment.Moment = moment(0)
     lastOpenFile?: project.ModuleHandle
 
     constructor(props: ProjectViewProps) {
@@ -110,6 +112,9 @@ export class ProjectView extends React.Component<ProjectViewProps, ProjectViewSt
                 s.commandWindowOpen = true;
                 return s;
             });
+            event.preventDefault();
+            event.stopPropagation();
+            return false;
         }
         else if (event.keyCode == keys.ESCAPE) {
             this.onCommandWindowClose();
