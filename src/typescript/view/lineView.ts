@@ -680,7 +680,10 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
         return Array.from(nodesById[id] || new Set());
     }
 
+
+
     const decorations = {
+        _lineDecorations: {},
         addClassDecoration(clazz: string, toId: string) {
             getElementsWithId(toId).forEach(element => {
                 $(element).addClass(clazz);
@@ -701,6 +704,32 @@ export function create<T>(container: HTMLElement, options: LineViewOptions<T>, e
                 }
                 hoverDec.append($(decoration).clone());
             });
+        },
+        addEndOfLineDecoration(element: HTMLElement, lineNumber: number) {
+            const line = lineContainer.children().eq(lineNumber)
+            if (line) {
+                const decoration = $('<div>').addClass('decoration end-of-line').appendTo(line);
+                decoration.append(element);
+                return {
+                    close() {
+                        decoration.remove();
+                    }
+                }
+            }
+            return {close(){}}
+        },
+        addWholeLineDecoration(element: HTMLElement, lineNumber: number) {
+            const line = lineContainer.children().eq(lineNumber)
+            if (line) {
+                const decoration = $('<div>').addClass('decoration whole-line').insertAfter(line);
+                decoration.append(element);
+                return {
+                    close() {
+                        decoration.remove();
+                    }
+                }
+            }
+            return {close(){}}
         },
         add(decoration: HTMLElement, toId: string, options: DecorationOptions) {
 

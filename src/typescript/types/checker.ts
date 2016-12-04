@@ -313,7 +313,12 @@ export function resolveFunctionByIdentifier(identifier: string, match: { inputTy
     if (!found || found.length === 0) return null;
 
     const matches = found.filter(decl => {
-        const functionType = typeCheckExpression(decl.valueExpression, context, scope) as FunctionType;
+        const functionType = typeCheckExpression(decl.valueExpression, context, scope);
+        if (functionType.kind !== 'function') {
+            context.typeCheckContext.errors.push(createError("Trying to call non function"));
+            return false;
+        }
+
         if (match.inputType && !checkIsAssignable(functionType.input, match.inputType)) {
             return false;
         }

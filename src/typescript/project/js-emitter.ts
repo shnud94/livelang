@@ -13,7 +13,6 @@ interface JSEmitOptions {
      * various recording functions should be prebuilt
      */
     recordFunctionInvocations?: (node: AST.CallExpressionNode) => FunctionInvocationRecorder
-
 }
 
 export function emitChildren(children: AST.ModuleChild[]) : string {
@@ -27,6 +26,9 @@ export function emitChildren(children: AST.ModuleChild[]) : string {
         }
         else if (child.type === 'assignment') {
             return `${child.identifier.value} = ${emitExpression(child.valueExpression)};`
+        }
+        else if (child.type === 'returnStatement') {
+            return child.expression ? `return ${emitExpression(child.expression)};` : 'return;'
         }
     }).join('\n');
 }
@@ -43,11 +45,12 @@ export function emitCallExpression(expression: AST.CallExpressionNode) : string 
 
         // Import statements
         if (expression.target.value === 'import') {
-            return `livelang.modules[${expression.target.value}]`;
+            return `livelang.modules['${expression.target.value}']`;
         }
     }
 
-    const args =  (expression.input ? emitExpression(expression.input).substr(-1).substr(1) : '') // remove brackets from livelang array literal
+    const stripBrackets = input => input.substr(1, input.length - 2);
+    const args =  (expression.input ? stripBrackets(emitExpression(expression.input)) : '') // remove brackets from livelang array literal
     return emitExpression(expression.target) + '(' + args + ')'
 }
 

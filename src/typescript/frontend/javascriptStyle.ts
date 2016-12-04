@@ -10,7 +10,7 @@ import {TextToValue, TextDescription, TextSpec} from './index';
 
 const frontendId = 'javascript';
 const justObjects = (something: any) => {
-    return _.flatten(something).filter(s => typeof(s) === 'object');
+    return _.flatten(something).filter(s => typeof(s) === 'object' && s != null);
 }
 const flat = (something: any) => {
     if (Array.isArray(something)) {
@@ -347,8 +347,8 @@ export const callExpression: TextToValue<AST.CallExpressionNode> = {
         }
 
         prev.target = assignParent(flat(components[0]) as AST.ExpressionType, prev);
-        prev.input = AST.createArrayLiteral(justObjects(flat(components[1])) as any[], prev);
-
+        const input = justObjects(flat(components[1])) || [];
+        prev.input = AST.createArrayLiteral(input as any[], prev);
         return prev;
     },
     getTextSpecs: () => ([
