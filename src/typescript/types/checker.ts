@@ -86,7 +86,7 @@ export function findMatchingFunction(identifier: string, args: Type, scope: Scop
         const callable = dec.valueExpression as AST.CallableLiteral;
         const inputType = createArrayType(callable.input.map(i => i.type));
 
-        if (typesMatch(inputType, args)) {
+        if (checkIsAssignable(inputType, args)) {
             return callable;
         }
 
@@ -118,121 +118,10 @@ export function isIntegerType(type: Type) {
 }
 
 export function seedTypeCheckContext(context: TypeCheckContext) {
-    _.extend(context.typesByIdentifier, b);
+    _.extend(context.resolutionContext.typesByIdentifier, b);
 }
 
-export function resolveTypeByIdentifier(identifier: string, context: ModuleTypeCheckContext) : Type | null {
-
-    const matching = context.typeCheckContext.modules.map(m => m.types[identifier]);
-    if (matching.length === 0) {
-        return null;
-    }
-
-    if (matching.length > 1) {
-        context.typeCheckContext.errors.push(genericError(`Multiple types exist with identifier ${identifier}`, null))
-    }
-
-    return matching[0];
-}
-
-export function processTypeDeclaration(declaration: AST.TypeDeclaration, context: ModuleTypeCheckContext) {
-
-    const type = declaration.typeExpression;
-
-    if (type.kind === 'reference') {
-
-
-        type.identifier
-    }
-    else if (type.kind === 'generic') {
-
-    }
-    else if (type.kind === 'and') {
-
-    }
-    else if (type.kind === 'or') {
-
-    }
-    else if (type.kind === 'map') {
-
-    }
-    else if (type.kind === 'array') {
-
-    }
-    else if (type.kind === 'any') {
-
-    }
-    else if (type.kind === 'unresolved') {
-
-    }
-}
-
-export function typeCheckModule(module: AST.ModuleNode, context?: ModuleTypeCheckContext): { context: ModuleTypeCheckContext, type: MapType } {
-
-    const rootScope: Scope = {
-        children: [],
-        declarationsByIdentifier: {}
-    }
-
-    if (!context) {
-        context = {
-            module,
-            rootScope: rootScope,
-            types: {},
-            typeCheckContext: {
-                modules: [context],
-                modulesByIdentifier() {
-                    const c = context as any;
-                    if (!c._modulesByIdentifier) {
-                        c._modulesByIdentifier = _.indexBy(context.typeCheckContext.modules, module => module.module.identifier.value)
-                    }
-                    return c._modulesByIdentifier;
-                },
-                errors: [],
-                warnings: [],
-                typesByIdentifier: {}
-            }
-        }
-
-        seedTypeCheckContext(context.typeCheckContext);
-    }
-
-    function processChild(child: AST.ModuleChild) {
-        if (child.type === 'typeDeclaration') {
-
-        }
-        else if (child.type.startsWith('expression')) {
-            typeCheckExpression(child as AST.ExpressionType, context, rootScope);
-        }
-        else if (child.type === 'declaration') {
-            typeCheckDeclaration(child, context, rootScope);
-        }
-        else if (child.type === 'assignment') {
-            typeCheckAssignment(child, context, rootScope);
-        }
-    }
-
-    const libraryDeclarations: AST.DeclarationNode[] = _.flatten([
-        [].concat(numbers.declarations, arrays.declarations)
-    ]);
-    libraryDeclarations.forEach(processChild);
-
-    // TODO: Prepopulate all declarations by identifier
-
-    module.children.forEach(child => {
-        // Process init blocks first
-        if (child.type === 'scope' && child.flags.has('init')) {
-            child.children.forEach(processChild);
-        }
-    });
-
-    module.children.forEach(processChild);
-
-    return { context, type: null };
-}
-
-// Think this is just for checking assignment
-export function typesMatch(dest: Type, source: Type): boolean {
+export function checkIsAssignable(dest: Type, source: Type): boolean {
     // Any type
     if (dest.kind === 'any' || source.kind === 'any') return true;
 
@@ -251,7 +140,7 @@ export function typesMatch(dest: Type, source: Type): boolean {
         const [mapDest, mapSource] = [dest as MapType, source as MapType];
 
         return _.keys(mapDest.map).every(key => {
-            return mapSource.map[key] && typesMatch(mapDest[key], mapSource[key]);
+            return mapSource.map[key] && checkIsAssignable(mapDest[key], mapSource[key]);
         });
     }
 
@@ -260,30 +149,30 @@ export function typesMatch(dest: Type, source: Type): boolean {
         const [arrayDest, arraySource] = [dest as ArrayType, source as ArrayType];
 
         if (Array.isArray(arrayDest.elementType) && Array.isArray(arraySource.elementType)) {
-            return (arrayDest.elementType as Type[]).every((type, index) => typesMatch(type, arraySource.elementType[index]))
+            return (arrayDest.elementType as Type[]).every((type, index) => checkIsAssignable(type, arraySource.elementType[index]))
         }
 
         if (!Array.isArray(arrayDest.elementType) && !Array.isArray(arraySource.elementType)) {
-            return typesMatch(arrayDest.elementType as Type, arraySource.elementType as Type);
+            return checkIsAssignable(arrayDest.elementType as Type, arraySource.elementType as Type);
         }
     }
 
     if (dest.kind === 'or' && source.kind === 'or') {
         // Or type
         const [orDest, orSource] = [dest as OrType, source as OrType];
-        return orDest.choices.some((type, index) => typesMatch(type, orSource.choices[index]));
+        return orDest.choices.some((type, index) => checkIsAssignable(type, orSource.choices[index]));
     }
 
     if (dest.kind === 'and' && source.kind === 'and') {
         // And type
         const [andDest, andSource] = [dest as AndType, source as AndType];
-        return andDest.choices.every((type, index) => typesMatch(type, andSource.choices[index]));
+        return andDest.choices.every((type, index) => checkIsAssignable(type, andSource.choices[index]));
     }
 
     if (dest.kind === 'function' && source.kind === 'function') {
         // Function type
         const [destFunc, sourceFunc] = [dest as FunctionType, source as FunctionType];
-        return typesMatch(destFunc.output, sourceFunc.output) && typesMatch(destFunc.input, sourceFunc.input);
+        return checkIsAssignable(destFunc.output, sourceFunc.output) && checkIsAssignable(destFunc.input, sourceFunc.input);
     }
 
     return false;
@@ -316,21 +205,19 @@ export interface ModuleTypeCheckContext {
     types: { [identifier: string]: Type }
 }
 
-export interface TypeCheckContext {
-    modules: ModuleTypeCheckContext[]
-    modulesByIdentifier: () => { [identifier: string]: ModuleTypeCheckContext }
-    errors: TypeCheckError[]
-    warnings: TypeCheckError[]
-    /**
-     * Not able to identify every type straight away,
-     * while searching through we may find types that refer to other types
-     * by their identifier that we haven't encountered yet
-     */
-    typesByIdentifier: { [identifier: string]: Type | string },
-}
+export class TypeCheckContext {
+    modules: ModuleTypeCheckContext[] = []
+    modulesByIdentifier: () => { [identifier: string]: ModuleTypeCheckContext } = () => {
+        const c = this as any;
+        if (!c._modulesByIdentifier) {
+            c._modulesByIdentifier = _.indexBy(this.modules, module => module.module.identifier.value)
+        }
 
-export function initUnresolvedType(context: ModuleTypeCheckContext, waiting: any[], giving: any[]) {
-
+        return c._modulesByIdentifier;
+    }
+    errors: TypeCheckError[] = []
+    warnings: TypeCheckError[] = []
+    resolutionContext = new ResolutionContext({})
 }
 
 export function typeCheckDeclaration(declaration: AST.DeclarationNode, context: ModuleTypeCheckContext, scope: Scope): Type {
@@ -339,12 +226,12 @@ export function typeCheckDeclaration(declaration: AST.DeclarationNode, context: 
     let declarationType: Type;
 
     if (declaration.typeExpression) {
-        declarationType = typeCheckContext.resolveType(declaration.typeExpression);
+        declarationType = typeCheckContext.resolutionContext.resolveType(declaration.typeExpression);
     }
 
     if (declaration.valueExpression) {
         let expressionType = typeCheckExpression(declaration.valueExpression, context, scope);
-        const match = typesMatch(declarationType || getAnyType(), expressionType);
+        const match = checkIsAssignable(declarationType || getAnyType(), expressionType);
         if (!match) {
             typeCheckContext.errors.push({
                 kind: 'typeMismatchError',
@@ -381,7 +268,7 @@ export function typeCheckDeclaration(declaration: AST.DeclarationNode, context: 
                     if (i2 === i) return true; // Will encounter ourselves in this list, skip that one
 
                     // Make sure types are not assignable, i.e. all are unique
-                    const match = typesMatch(declaration._runtime.type, other._runtime.type);
+                    const match = checkIsAssignable(declaration._runtime.type, other._runtime.type);
                     if (match) typeCheckContext.errors.push(createError('Ambiguous function declaration, types identical', [declaration, other]));
                     return !match;
                 });
@@ -410,7 +297,7 @@ export function typeCheckAssignment(assignment: AST.AssignmentNode, modContext: 
     const decType = declaration._runtime.type || getAnyType();
     const expressionType = typeCheckExpression(assignment.valueExpression, modContext, scope);
 
-    const match = typesMatch(decType, expressionType);
+    const match = checkIsAssignable(decType, expressionType);
     if (!match) {
         console.error('Create our type error messages in the type match function itself?');
     }
@@ -426,10 +313,10 @@ export function resolveFunctionByIdentifier(identifier: string, match: { inputTy
 
     const matches = found.filter(decl => {
         const functionType = typeCheckExpression(decl.valueExpression, context, scope) as FunctionType;
-        if (match.inputType && !typesMatch(functionType.input, match.inputType)) {
+        if (match.inputType && !checkIsAssignable(functionType.input, match.inputType)) {
             return false;
         }
-        if (match.outputType && !typesMatch(functionType.output, match.outputType)) {
+        if (match.outputType && !checkIsAssignable(functionType.output, match.outputType)) {
             return false;
         }
 
@@ -491,7 +378,7 @@ export function typeCheckExpression(expression: AST.ExpressionType, modContext: 
             // const sameType = childTypes.reduce((prev, curr) => {
 
             //     if (prev && allAssignable) {
-            //         allAssignable = typesMatch(prev, curr);
+            //         allAssignable = checkIsAssignable(prev, curr);
             //     }
             //     return curr;
 
@@ -562,7 +449,7 @@ export function typeCheckExpression(expression: AST.ExpressionType, modContext: 
             }
 
             const checkFunction = (inputType: Type, func: FunctionType) => {
-                return typesMatch(func.input, inputType);
+                return checkIsAssignable(func.input, inputType);
             }
 
             if (functionType.kind !== 'function') {
@@ -571,7 +458,7 @@ export function typeCheckExpression(expression: AST.ExpressionType, modContext: 
             }
 
             const asMethod = functionType as FunctionType;
-            const inputMatches = typesMatch(asMethod.input, inputType);
+            const inputMatches = checkIsAssignable(asMethod.input, inputType);
 
             if (!inputMatches) {
                 context.errors.push(createError(`Input for method $0 does not match declared`, [expression.target]));
@@ -639,55 +526,46 @@ export function typeCheckExpression(expression: AST.ExpressionType, modContext: 
 
 class ResolutionContext {
 
-    waiting: any[] = [];
-}
-type TypeOrFuture = Type | () => Type;
-export function resolveReferenceTypes(type: Type, context: ResolutionContext) : TypeOrFuture {
-    const recurse = type => resolveReferenceTypes(type, context);
-    const isFuture = type => typeof(type) === 'function';
-    const tryAgain = () => {
-        context.waiting.push(type);
+    constructor(public typesByIdentifier: {[identifier: string] : Type}) {
 
-        return () => {
-            const maybeResolve = resolveReferenceTypes(type, context);
-            if (isFuture(type)) return tryAgain();
-
-            context.waiting.pop();
-            return maybeResolve;
-        }
     }
 
+    resolveType(type: Type) {
+        return resolveReferenceTypes(type, this);
+    }
+
+    unresolved: Type[] = [];
+}
+export function resolveReferenceTypes(type: Type, context: ResolutionContext) : Type {
+    const recurse = type => resolveReferenceTypes(type, context);
+
     if (type.kind === 'reference') {
-        if (typeGetter(type.identifier)) {
-            return recurse(typeGetter(type.identifier));
+        const resolved = context.typesByIdentifier[type.identifier] 
+        if (resolved) {
+            return recurse(resolved);
         }
         else {
-            console.error("Unresolved type");
-            return tryAgain();
+            context.unresolved.push(type);
+            return getAnyType();
         }
     }
     else if (type.kind === 'array') {
         if (Array.isArray(type.elementType)) {
             const mapped = type.elementType.map(t => recurse(type));
-            if (mapped.some(isFuture)) return tryAgain();
-            return createArrayType(mapped, type.identifier)
+            return createArrayType(mapped as Type[], type.identifier)
         }
         else {
             const resolved = recurse(type.elementType);
-            if (isFuture(resolved)) return tryAgain();
-            return createArrayType(resolved, type.identifier)
+            return createArrayType(resolved as Type, type.identifier)
         }
     }
     else if (type.kind === 'function') {
         const inn = recurse(type.input);
         const out = recurse(type.output);
-        if ([inn, out].some(isFuture)) return tryAgain();
-        return createCallableType(recurse(type.input), recurse(type.output), type.identifier);
+        return createCallableType(inn as Type, out as Type, type.identifier);
     }
     else if (type.kind === 'map') {
-        const map =  createMapType(_.mapObject(type.map, recurse), type.identifier);
-        if (_.values(map.map).some(isFuture)) return tryAgain();
-        return map;
+        return createMapType(_.mapObject(type.map, val => recurse(val)), type.identifier);
     }
     else {
         // Unsupported type, assume it's okay
@@ -696,13 +574,78 @@ export function resolveReferenceTypes(type: Type, context: ResolutionContext) : 
     }
 }
 
-export function gatherTypesByIdentifier(module: AST.ModuleNode) : {[identifier: string] : Type} {
+export function gatherTypesByIdentifier(module: AST.ModuleNode) : ResolutionContext {
 
     const decs = module.children.filter(child => child.type === 'typeDeclaration') as AST.TypeDeclaration[];
-    const decsByIdentifier = _.indexBy(decs, 'identifier');
-    _.keys(decsByIdentifier).forEach(key => {
+    const types = decs.map(dec => dec.typeExpression);
+    const context = new ResolutionContext(_.indexBy(types, 'identifier'));
 
-        const declaration = decsByIdentifier[key];
-        decsByIdentifier[key] = resolveReferenceTypes(declaration.typeExpression, new ResolutionContext());
+    _.keys(context.typesByIdentifier).forEach(key => {
+        const type = context.typesByIdentifier[key];
+        context.typesByIdentifier[key] = resolveReferenceTypes(type, context);
     })
+
+    return context;
+}
+
+interface ModuleTypeCheckResult {
+    /**
+     * The context that was used for the type checking. Contains various related information
+     */
+    context: ModuleTypeCheckContext
+    /**
+     * A type that can be used to access exported members inside the module
+     */
+    type: MapType
+}
+export function typeCheckModule(module: AST.ModuleNode, context?: ModuleTypeCheckContext): ModuleTypeCheckResult {
+
+    const rootScope: Scope = {
+        children: [],
+        declarationsByIdentifier: {}
+    }
+
+    if (!context) {
+        context = {
+            module,
+            rootScope: rootScope,
+            types: {},
+            typeCheckContext: new TypeCheckContext()
+        }
+
+        seedTypeCheckContext(context.typeCheckContext);
+    }
+
+    const moduleResolutionContext = gatherTypesByIdentifier(module);
+    _.extend(context.typeCheckContext.resolutionContext.typesByIdentifier, moduleResolutionContext.typesByIdentifier);
+
+    function processChild(child: AST.ModuleChild) {
+        if (child.type.startsWith('expression')) {
+            typeCheckExpression(child as AST.ExpressionType, context, rootScope);
+        }
+        else if (child.type === 'declaration') {
+            typeCheckDeclaration(child, context, rootScope);
+        }
+        else if (child.type === 'assignment') {
+            typeCheckAssignment(child, context, rootScope);
+        }
+    }
+
+    const libraryDeclarations: AST.DeclarationNode[] = _.flatten([
+        [].concat(numbers.declarations, arrays.declarations)
+    ]);
+    libraryDeclarations.forEach(processChild);
+
+    // TODO: Prepopulate all declarations by identifier
+
+    module.children.forEach(child => {
+        // Process init blocks first
+        if (child.type === 'scope' && child.flags.has('init')) {
+            child.children.forEach(processChild);
+        }
+    });
+
+    module.children.forEach(processChild);
+
+    return { context, type: null };
 }
