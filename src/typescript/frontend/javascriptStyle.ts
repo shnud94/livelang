@@ -458,9 +458,9 @@ export const typeExpression: TextToValue<types.Type> = {
                 return types.createArrayType(expression.value.map(val => parseExpressionToType(val)));
             }
             else if (expression.type === 'expressionmapLiteral') {
-                // TODO: Probs needs looking at
-                console.log('look at me.....');
-                return types.createMapType(expression.value);
+                return types.createMapType(_.mapObject(expression.value, v => {
+                    return parseExpressionToType(v);
+                }));
             }
             else if (expression.type === 'expressionidentifier') {
                 return types.createReferenceType(expression.value);
@@ -481,7 +481,7 @@ export const typeDeclaration: TextToValue<types.Type> = {
     id: 'typeDeclaration',
     valueFromComponents: (components) => {
         const type  = flat(components.last()) as types.Type
-        type.identifier = flat(components[2]);
+        type.identifier = flat(components[2]).value;
         return type;
     },
     getTextSpecs: () => [

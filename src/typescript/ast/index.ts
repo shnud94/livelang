@@ -19,7 +19,7 @@ interface CodeNodeRuntime {
 }
 
 
-export type Nodes = AssignmentNode | DeclarationNode | ModuleNode | TypeDeclaration | Identifier | CallExpressionNode | MemberAccessExpression | ExpressionType | MapLiteralNode | ReturnStatement;
+export type Nodes = AssignmentNode | DeclarationNode | ModuleNode | Type | Identifier | CallExpressionNode | MemberAccessExpression | ExpressionType | MapLiteralNode | ReturnStatement;
 
 export interface CodeNode {
     _id?: string
@@ -60,18 +60,6 @@ export interface DeclarationNode extends CodeNode {
 
 export interface ImportNode extends CodeNode {
     identifier: Identifier
-}
-
-export interface TypeDeclaration extends CodeNode {
-    type: 'typeDeclaration',
-
-    /**
-     * Every type must have a unique identifier not equal to one already created, which includes those that are preexisting such as
-     * string, boolean, array, int32 etc. 
-     */
-    typeExpression: Type & {
-        identifier: string
-    }
 }
 
 export type ExpressionType = Identifier | CallExpressionNode | MemberAccessExpression | FunctionAccessExpression | ArrayLiteralNode | NumericLiteralNode | MapLiteralNode | StringLiteralNode | CallableLiteral;
@@ -152,7 +140,7 @@ export interface CallExpressionNode extends CodeNode {
     }
 }
 
-export type ModuleChild = DeclarationNode | ExpressionType | AssignmentNode | Type | Scope | ModuleNode | TypeDeclaration;
+export type ModuleChild = DeclarationNode | ExpressionType | AssignmentNode | Type | Scope | ModuleNode | Type;
 export interface ModuleNode extends CodeNode {
     type: 'module',
 

@@ -16,7 +16,7 @@ export interface TypeBase extends AST.CodeNode {
    identifier?: string
 }
 
-export type Type = AndType | OrType | FunctionType | MapType | ArrayType | ReferenceType | AnyType | GenericType | UnresolvedType;
+export type Type = AndType | OrType | FunctionType | MapType | ArrayType | ReferenceType | AnyType | GenericType | UnresolvedType | BuiltInType;
 
 /**
  * Matches anything - can only really be used in dynamic runtimes
@@ -55,6 +55,11 @@ export interface OrType extends TypeBase {
 export interface ReferenceType extends TypeBase {
     kind: 'reference',
     identifier: string
+}
+
+export interface BuiltInType extends TypeBase {
+    identifier: string,
+    kind: 'builtin'
 }
 
 /**
@@ -119,6 +124,14 @@ export function createArrayType(type: Type | Type[], identifier?: string) : Arra
         kind: 'array',
         elementType: type
     };
+}
+
+export function createBuiltInType(identifier: string) : BuiltInType {
+    return {
+        type: 'type',
+        identifier,
+        kind: 'builtin'
+    }
 }
 
 export function createReferenceType(identifier: string) : ReferenceType {

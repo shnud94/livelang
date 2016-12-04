@@ -107,7 +107,7 @@ export function findMatchingFunction(identifier: string, args: Type, scope: Scop
 // }
 
 export function isIntegerType(type: Type) {
-    return type.kind === 'reference' && (
+    return type.kind === 'builtin' && (
         type === b.int16 ||
         type === b.int32 ||
         type === b.int8 ||
@@ -117,10 +117,6 @@ export function isIntegerType(type: Type) {
     );
 }
 
-export function seedTypeCheckContext(context: TypeCheckContext) {
-    _.extend(context.resolutionContext.typesByIdentifier, b);
-}
-
 export function checkIsAssignable(dest: Type, source: Type): boolean {
     // Any type
     if (dest.kind === 'any' || source.kind === 'any') return true;
@@ -128,6 +124,11 @@ export function checkIsAssignable(dest: Type, source: Type): boolean {
     if (dest.kind !== source.kind) {
         // Type of the types have to match
         return false;
+    }
+
+    if (dest.kind === 'builtin' && source.kind === 'builtin' && dest.identifier === source.identifier) {
+        // These refer to the same type as far as I'm aware :O
+        return true;
     }
 
     if (dest.kind === 'reference' && source.kind === 'reference' && dest.identifier === source.identifier) {
@@ -527,7 +528,8 @@ export function typeCheckExpression(expression: AST.ExpressionType, modContext: 
 class ResolutionContext {
 
     constructor(public typesByIdentifier: {[identifier: string] : Type}) {
-
+        // Add all built in types
+        _.extend(typesByIdentifier, b);
     }
 
     resolveType(type: Type) {
@@ -536,12 +538,21 @@ class ResolutionContext {
 
     unresolved: Type[] = [];
 }
+
+
+let lastReference: string = null;
 export function resolveReferenceTypes(type: Type, context: ResolutionContext) : Type {
     const recurse = type => resolveReferenceTypes(type, context);
 
     if (type.kind === 'reference') {
-        const resolved = context.typesByIdentifier[type.identifier] 
+        const resolved = context.typesByIdentifier[type.identifier]
+
         if (resolved) {
+            if (lastReference == type.identifier) {
+                console.error('Recursive reference type!');
+                return getAnyType();
+            }
+            lastReference = type.identifier;
             return recurse(resolved);
         }
         else {
@@ -567,6 +578,9 @@ export function resolveReferenceTypes(type: Type, context: ResolutionContext) : 
     else if (type.kind === 'map') {
         return createMapType(_.mapObject(type.map, val => recurse(val)), type.identifier);
     }
+    else if (type.kind === 'builtin' || type.kind === 'any') {
+        return type;
+    }
     else {
         // Unsupported type, assume it's okay
         console.warn("Unsupported type, is this okay?");
@@ -576,8 +590,7 @@ export function resolveReferenceTypes(type: Type, context: ResolutionContext) : 
 
 export function gatherTypesByIdentifier(module: AST.ModuleNode) : ResolutionContext {
 
-    const decs = module.children.filter(child => child.type === 'typeDeclaration') as AST.TypeDeclaration[];
-    const types = decs.map(dec => dec.typeExpression);
+    const types = module.children.filter(child => child.type === 'type') as Type[];
     const context = new ResolutionContext(_.indexBy(types, 'identifier'));
 
     _.keys(context.typesByIdentifier).forEach(key => {
@@ -612,12 +625,9 @@ export function typeCheckModule(module: AST.ModuleNode, context?: ModuleTypeChec
             types: {},
             typeCheckContext: new TypeCheckContext()
         }
-
-        seedTypeCheckContext(context.typeCheckContext);
     }
 
-    const moduleResolutionContext = gatherTypesByIdentifier(module);
-    _.extend(context.typeCheckContext.resolutionContext.typesByIdentifier, moduleResolutionContext.typesByIdentifier);
+    context.typeCheckContext.resolutionContext = gatherTypesByIdentifier(module);
 
     function processChild(child: AST.ModuleChild) {
         if (child.type.startsWith('expression')) {

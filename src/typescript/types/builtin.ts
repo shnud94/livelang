@@ -1,22 +1,22 @@
-import {createReferenceType, getAnyType} from './index';
+import {createBuiltInType, getAnyType} from './index';
 
 export const BuiltInTypes = {
     any: getAnyType(),
     
-    string: createReferenceType('string'),
+    string: createBuiltInType('string'),
     
-    int32: createReferenceType('int32'),
-    int16: createReferenceType('int16'),
-    int8: createReferenceType('int8'),
+    int32: createBuiltInType('int32'),
+    int16: createBuiltInType('int16'),
+    int8: createBuiltInType('int8'),
 
-    uint32: createReferenceType('uint32'),
-    uint16: createReferenceType('uint16'),
-    uint8: createReferenceType('uint8'),
+    uint32: createBuiltInType('uint32'),
+    uint16: createBuiltInType('uint16'),
+    uint8: createBuiltInType('uint8'),
 
-    float32: createReferenceType('float32'),
-    float64: createReferenceType('float64'),
+    float32: createBuiltInType('float32'),
+    float64: createBuiltInType('float64'),
 
-    boolean: createReferenceType('boolean'),
+    boolean: createBuiltInType('boolean'),
 
-    null: createReferenceType('null')
+    null: createBuiltInType('null')
 }
