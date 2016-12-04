@@ -16,7 +16,7 @@ export interface TypeBase extends AST.CodeNode {
    identifier?: string
 }
 
-export type Type = TypeBase & (AndType | OrType | FunctionType | MapType | ArrayType | ReferenceType | AnyType | GenericType | UnresolvedType);
+export type Type = AndType | OrType | FunctionType | MapType | ArrayType | ReferenceType | AnyType | GenericType | UnresolvedType;
 
 /**
  * Matches anything - can only really be used in dynamic runtimes

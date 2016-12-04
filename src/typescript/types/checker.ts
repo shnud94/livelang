@@ -8,6 +8,7 @@ import * as _ from 'underscore';
 
 import * as numbers from '../interpreter/lib/number';
 import * as arrays from '../interpreter/lib/array';
+import {identifier} from "../frontend/javascriptStyle";
 
 
 export type TypeCheckError = TypeMismatchError | TypeErrorVague | TypeErrorUndefined | GenericError;
@@ -120,6 +121,20 @@ export function seedTypeCheckContext(context: TypeCheckContext) {
     _.extend(context.typesByIdentifier, b);
 }
 
+export function resolveTypeByIdentifier(identifier: string, context: ModuleTypeCheckContext) : Type | null {
+
+    const matching = context.typeCheckContext.modules.map(m => m.types[identifier]);
+    if (matching.length === 0) {
+        return null;
+    }
+
+    if (matching.length > 1) {
+        context.typeCheckContext.errors.push(genericError(`Multiple types exist with identifier ${identifier}`, null))
+    }
+
+    return matching[0];
+}
+
 export function processTypeDeclaration(declaration: AST.TypeDeclaration, context: ModuleTypeCheckContext) {
 
     const type = declaration.typeExpression;
@@ -127,6 +142,7 @@ export function processTypeDeclaration(declaration: AST.TypeDeclaration, context
     if (type.kind === 'reference') {
 
 
+        type.identifier
     }
     else if (type.kind === 'generic') {
 
@@ -162,8 +178,7 @@ export function typeCheckModule(module: AST.ModuleNode, context?: ModuleTypeChec
         context = {
             module,
             rootScope: rootScope,
-            resolvedTypes: {},
-            unresolvedTypes: {},
+            types: {},
             typeCheckContext: {
                 modules: [context],
                 modulesByIdentifier() {
@@ -174,7 +189,6 @@ export function typeCheckModule(module: AST.ModuleNode, context?: ModuleTypeChec
                     return c._modulesByIdentifier;
                 },
                 errors: [],
-                resolveType: identifier => resolveTypeByIdentifier(identifier, context.typeCheckContext.typesByIdentifier),
                 warnings: [],
                 typesByIdentifier: {}
             }
@@ -295,18 +309,16 @@ export interface ModuleTypeCheckContext {
     typeCheckContext: TypeCheckContext
     module: AST.ModuleNode
     rootScope: Scope,
-    resolvedTypes: { [identifier: string]: Type }
-    unresolvedTypes: {
-        [identifier: string]: {
-            waiting: any[]
-        }
-    }
+
+    // We store resolved types on a module by module basis, this is so if we
+    // have seperate modules with types with the same name, hopefully we handle that
+    // more appropriately
+    types: { [identifier: string]: Type }
 }
 
 export interface TypeCheckContext {
     modules: ModuleTypeCheckContext[]
     modulesByIdentifier: () => { [identifier: string]: ModuleTypeCheckContext }
-    resolveType: (identifier: Type) => Type | null
     errors: TypeCheckError[]
     warnings: TypeCheckError[]
     /**
@@ -538,6 +550,8 @@ export function typeCheckExpression(expression: AST.ExpressionType, modContext: 
                         context.errors.push(genericError(`Couldn't find a module named ${identifier.value}`, identifier));
                         return getAnyType();
                     }
+
+                    return typeCheckModule(mod.module, modContext);
                 }
 
                 callable = resolveFunctionByIdentifier(expression.target.value, { inputType }, modContext, scope);
@@ -623,19 +637,72 @@ export function typeCheckExpression(expression: AST.ExpressionType, modContext: 
     return type;
 }
 
-export function resolveTypeByIdentifier(type: string | Type, typesByIdentifier: { [identifier: string]: Type | String }): Type {
-    if (typeof (type) !== 'string') return type as Type;
+class ResolutionContext {
 
-    const identifier = type as string;
-    const result = typesByIdentifier[identifier];
+    waiting: any[] = [];
+}
+type TypeOrFuture = Type | () => Type;
+export function resolveReferenceTypes(type: Type, context: ResolutionContext) : TypeOrFuture {
+    const recurse = type => resolveReferenceTypes(type, context);
+    const isFuture = type => typeof(type) === 'function';
+    const tryAgain = () => {
+        context.waiting.push(type);
 
-    if (!result) {
-        // This will then get caught by the final process
-        // that checks to see all types have been resolved
-        console.error(`Type ${type} was not declared anywhere`);
-        return type as any;
+        return () => {
+            const maybeResolve = resolveReferenceTypes(type, context);
+            if (isFuture(type)) return tryAgain();
+
+            context.waiting.pop();
+            return maybeResolve;
+        }
     }
 
-    if (typeof (result) === 'string') return resolveTypeByIdentifier(result as string, typesByIdentifier);
-    return result as Type;
+    if (type.kind === 'reference') {
+        if (typeGetter(type.identifier)) {
+            return recurse(typeGetter(type.identifier));
+        }
+        else {
+            console.error("Unresolved type");
+            return tryAgain();
+        }
+    }
+    else if (type.kind === 'array') {
+        if (Array.isArray(type.elementType)) {
+            const mapped = type.elementType.map(t => recurse(type));
+            if (mapped.some(isFuture)) return tryAgain();
+            return createArrayType(mapped, type.identifier)
+        }
+        else {
+            const resolved = recurse(type.elementType);
+            if (isFuture(resolved)) return tryAgain();
+            return createArrayType(resolved, type.identifier)
+        }
+    }
+    else if (type.kind === 'function') {
+        const inn = recurse(type.input);
+        const out = recurse(type.output);
+        if ([inn, out].some(isFuture)) return tryAgain();
+        return createCallableType(recurse(type.input), recurse(type.output), type.identifier);
+    }
+    else if (type.kind === 'map') {
+        const map =  createMapType(_.mapObject(type.map, recurse), type.identifier);
+        if (_.values(map.map).some(isFuture)) return tryAgain();
+        return map;
+    }
+    else {
+        // Unsupported type, assume it's okay
+        console.warn("Unsupported type, is this okay?");
+        return type;
+    }
+}
+
+export function gatherTypesByIdentifier(module: AST.ModuleNode) : {[identifier: string] : Type} {
+
+    const decs = module.children.filter(child => child.type === 'typeDeclaration') as AST.TypeDeclaration[];
+    const decsByIdentifier = _.indexBy(decs, 'identifier');
+    _.keys(decsByIdentifier).forEach(key => {
+
+        const declaration = decsByIdentifier[key];
+        decsByIdentifier[key] = resolveReferenceTypes(declaration.typeExpression, new ResolutionContext());
+    })
 }
