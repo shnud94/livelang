@@ -1,3 +1,9 @@
+import * as os from 'os'
+
+export function metaKey(event: KeyboardEvent) {
+  return os.platform() == 'win32' ? event.ctrlKey : event.metaKey;
+}
+
 export enum keys {
   BACKSPACE = 8,
   TAB = 9,

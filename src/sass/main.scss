@@ -8,8 +8,7 @@ $spacing-standard: 1rem;
 $z-index-command-window: 2;
 
 body {
-    font-size: 18px;
-    font-family: monospace;
+    font-size: 24px;
     font-family: 'menlo', 'consolas', monospace;
     box-sizing: border-box;
     margin: 0;
@@ -200,7 +199,7 @@ input {
         margin: 0 auto;
         margin-right: 0;
         flex-grow: 1;
-        
+         
         .line {
             border: 1px solid transparent;
             &.focused {

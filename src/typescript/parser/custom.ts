@@ -186,9 +186,19 @@ export const newGetRuleDefinitionForTextSpec = (spec: TextSpec, context: Grammar
 
         function processParsedValue(data: any, location: number) {
             const value = description.valueFromComponents(data)
+
+            // sometimes the same thing gets processed twice which is super weird but we end up
+            // processing this value itself as its own source, which leads to overwriting its length/end,
+            // resulting in NaN and all sorts..
+            if (value.source) return value;
+
             value.source = {}
             value.source.start = location
-            value.source.length = _.flatten(data).join('').length
+            const flattened = _.flatten(data);
+            const objs = flattened.filter(o => typeof(o) === 'object' && o != null);
+            const childLengths = objs.reduce((prev, curr) => prev + curr.source.length, 0);
+            const strs = flattened.filter(s => typeof(s) === 'string');
+            value.source.length = strs.join('').length + childLengths;
             value.source.end = value.source.start + value.source.length
             return value;
         }

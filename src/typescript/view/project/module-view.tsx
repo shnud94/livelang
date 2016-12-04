@@ -5,6 +5,7 @@ import * as immutable from 'immutable'
 import * as _ from 'underscore'
 import { CommandWindow, Command } from './command-window'
 import keys from '../util/keys'
+import * as Keys from '../util/keys'
 import * as $ from 'jquery'
 import * as programLineView from '../module-line-view'
 import * as lineView from '../lineView'
@@ -14,6 +15,7 @@ import * as textDesc from '../../frontend/javascriptStyle';
 import * as interpreter from '../../interpreter/index';
 import * as checker from '../../types/checker';
 import * as types from '../../types/index';
+import * as jsEmitter from '../../project/js-emitter'
 
 interface ModuleViewProps {
     moduleHandle: project.ModuleHandle
@@ -43,13 +45,11 @@ export class ModuleView extends React.Component<ModuleViewProps, ModuleViewState
                 return s;
             });
         }
-
-        const parsedModule = parser.parseSpecCached(textDesc.theModule, content, textDesc.theModule.id);
-        console.log(parsedModule);
     }
 
     setContent(content: HTMLElement | null) {
         if (content && this.lastOpenFile !== this.props.moduleHandle) {
+            $(content).empty();
             const view = lineView.create(content, {
                 onContentChange: _.debounce(() => this.onLineViewContentChanged(view, view.getAllText()), 250)
             }, () => [{ content: this.props.moduleHandle.content }])
@@ -58,14 +58,17 @@ export class ModuleView extends React.Component<ModuleViewProps, ModuleViewState
         }
     }
 
-    onKeyUp(event: KeyboardEvent) {
-        if (event.keyCode == keys.KEY_S && event.metaKey) {
+    save() {
+        this.props.moduleHandle.save();
+        this.setState(s => {
+            s.dirty = false;
+            return s;
+        })
+    }
 
-            this.props.moduleHandle.save();
-            this.setState(s => {
-                s.dirty = false;
-                return s;
-            })
+    onKeyDown(event: KeyboardEvent) {
+        if (event.keyCode == keys.KEY_S && Keys.metaKey(event)) {
+           this.save();
         }
     }
 
@@ -77,7 +80,7 @@ export class ModuleView extends React.Component<ModuleViewProps, ModuleViewState
             classes.push('-dirty');
         }
 
-        return <div className={classes.join(' ')} onKeyDown={this.onKeyUp.bind(this)}>
+        return <div className={classes.join(' ')} onKeyDown={this.onKeyDown.bind(this)}>
             <div className="title-wrap">
                 <div className="title">{fileName}</div>
             </div>

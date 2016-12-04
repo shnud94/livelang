@@ -5,8 +5,12 @@ import * as program from '../program';
 import * as _ from 'underscore';
 import * as chokidar from 'chokidar';
 import * as path from 'path';
+import * as parser from '../parser/custom';
 import * as projectView from '../view/project/project-view';
 import * as $ from 'jquery';
+import * as jsEmitter from './js-emitter'
+import * as style from '../frontend/javascriptStyle'
+import * as checker from '../types/checker'
 
 interface SerializedProject {
     rootDir?: string,
@@ -80,6 +84,27 @@ export class LiveLangProject {
         fs.writeFileSync(path.join(this.rootDir, filename), '');
     }
 
+    onProjectChanged() {
+        const modules = this.getAllModules();
+        const parsed = modules.map(module => parser.parseSpecCached(style.theModule, module._savedContent, style.theModule.id));
+        const results: AST.ModuleNode[] = parsed.map(p => {
+            if (p.error) {
+                console.error(p.error);
+            }
+            return p.result;
+        }).filter(m => m != null);
+        const modulesByIdentifier = _.indexBy(results, m => m.identifier.value)
+        const mainModule = modulesByIdentifier['main'];
+
+        if (!mainModule) {
+            console.error("No main module!");
+            return;
+        }
+
+        checker.typeCheckModule(mainModule);
+        console.log(jsEmitter.emitModule(mainModule));
+    }
+
     getHandleFromFile(filename: string): ModuleHandle | null {
         function loadFile(): string {
             return fs.readFileSync(filename).toString();
@@ -105,6 +130,8 @@ export class LiveLangProject {
         watcher.on('change', path => {
 
             handle.reload();
+            this.onProjectChanged();
+
         }).on('unlink', path => {
 
             watcher.close();
