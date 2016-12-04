@@ -74,8 +74,7 @@ function emitJs(project: project.LiveLangProject, emitOptions: JSEmitOptions) {
                 result = expression.value;
             }
             else if (expression.type === 'expressioncallExpression') {
-                const args =  (expression.input ? processExpression(expression.input).substr(-1).substr(1) : '') // remove brackets from livelang array literal
-                result = processExpression(expression.target) + '(' + args + ')'
+                result = processCallExpression(expression);
             }
             else if (expression.type === 'expressionmemberAccess') {
                 result = processExpression(expression.subject) + `[${processExpression(expression.member)}]`
@@ -119,5 +118,5 @@ function emitJs(project: project.LiveLangProject, emitOptions: JSEmitOptions) {
 
     return livelangInit + '\n' + results.map(mod => {
         return `livelang.modules[${mod.identifier}] = ${processModule(mod)}`
-    }).join('\n')''
+    }).join('\n')
 }
