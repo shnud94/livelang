@@ -1,3 +1,5 @@
+import * as path from 'path';
+
 export interface Result<T> {
     error?: string,
     result?: T
@@ -22,4 +24,12 @@ export function mapObj<T, G>(obj: {[key: string] : T}, callback: (key: string, v
         newObj[k] = v;
         return newObj;
     }, {}) as any;
+}
+
+export function getLivelangFolder() {
+    return path.join(getUserHome(), 'livelang');
+}
+
+export function getUserHome() {
+    return process.env.HOME || process.env.USERPROFILE;
 }

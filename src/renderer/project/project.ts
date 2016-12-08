@@ -8,9 +8,35 @@ import * as path from 'path';
 import * as parser from '../parser/custom';
 import * as projectView from '../view/project/project-view';
 import * as $ from 'jquery';
+import * as electron from 'electron';
 import * as jsEmitter from './js-emitter'
 import * as style from '../frontend/javascriptStyle'
 import * as checker from '../types/checker'
+import * as http from 'http'
+import {ipcRenderer} from 'electron'
+const sockjs = require('sockjs')
+
+const echo = sockjs.createServer({ sockjs_url: 'http://cdn.jsdelivr.net/sockjs/1.0.1/sockjs.min.js' });
+echo.on('connection', function(conn) {
+    conn.on('data', function(message) {
+        console.log(message);
+    });
+    conn.on('close', function() {});
+});
+
+const server = http.createServer();
+echo.installHandlers(server);
+server.listen(9999, 'localhost');
+
+let files = {};
+http.createServer((request, res) => {
+    const id = request.url.split('/')[1];
+    res.writeHead(200, {'Content-Type': 'text/javascript'});
+    res.end(files[id]);
+}).listen(3456, 'localhost');
+
+const w = window as any;
+w.livelang = {checker};
 
 interface SerializedProject {
     rootDir?: string,
@@ -30,6 +56,8 @@ export interface ModuleHandle {
     save()
     reload()
 }
+
+
 
 export class LiveLangProject {
 
@@ -102,7 +130,11 @@ export class LiveLangProject {
         }
 
         checker.typeCheckModule(mainModule);
-        console.log(jsEmitter.emitModule(mainModule));
+        const js = jsEmitter.emitJs(results, {checker: checker.createChecker(results), endpoint: 'http://localhost:9999'});
+        console.log(js);
+
+        files[0] = js;
+        ipcRenderer.send('run', 0);
     }
 
     getHandleFromFile(filename: string): ModuleHandle | null {

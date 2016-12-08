@@ -5,12 +5,16 @@ import * as AST from '../AST/index';
 import * as util from '../util';
 const log = require('debug')('livelang:typechecker');
 import * as _ from 'underscore';
-
 import * as numbers from '../interpreter/lib/number';
 import * as arrays from '../interpreter/lib/array';
 import {identifier} from "../frontend/javascriptStyle";
+import * as shelljs from 'shelljs';
+import * as path from 'path';
+import * as ts from 'typescript';
+import * as fs from 'fs';
+import * as child from 'child_process';
 
-
+export type TypeChecker = (node: AST.Nodes) => Type
 export type TypeCheckError = TypeMismatchError | TypeErrorVague | TypeErrorUndefined | GenericError;
 
 export type GenericError = {
@@ -340,6 +344,138 @@ export function resolveFunctionByIdentifier(identifier: string, match: { inputTy
     return matches[0].valueExpression as AST.CallableLiteral;
 }
 
+export function typeCheckCallExpression(expression: AST.CallExpressionNode, modContext: ModuleTypeCheckContext, scope: Scope) : Type {
+
+    const context = modContext.typeCheckContext;
+    const inputType = typeCheckExpression(expression.input, modContext, scope);
+
+    // We resolve the callable here, why? We mostly want to do everything we can
+    // in the type checking phase. Otherwise we defer until interpreter phase, which really
+    // we just want to take stuff and do stuff instead of checking things and deciding things (I think?)
+    let functionType: Type;
+    let callable: AST.CallableLiteral;
+
+    if (expression.target.type === 'expressionidentifier') {
+
+        // Special functions
+        if (expression.target.value === 'import') {
+
+            // Importing another module resolves to the type of that module
+            const arg = expression.input.value[0];
+            if (!arg || arg.type !== 'expressionIdentifier') {
+                context.errors.push(genericError('Must specify a module to import', expression));
+                return getAnyType();
+            }
+
+            const identifier = arg as AST.Identifier;
+            const mod = context.modulesByIdentifier()[identifier.value];
+
+            if (!mod) {
+                context.errors.push(genericError(`Couldn't find a module named ${identifier.value}`, identifier));
+                return getAnyType();
+            }
+
+            return typeCheckModule(mod.module, modContext).type;
+        }
+        else if (expression.target.value === 'npm') {
+
+            const module = expression.input.value[0];
+            return typingsFromNPM(module);
+        }
+
+        callable = resolveFunctionByIdentifier(expression.target.value, { inputType }, modContext, scope);
+        functionType = typeCheckExpression(callable, modContext, scope) as FunctionType;
+    }
+    else {
+        functionType = typeCheckExpression(expression.target, modContext, scope) as FunctionType;
+    }
+
+    const checkFunction = (inputType: Type, func: FunctionType) => {
+        return checkIsAssignable(func.input, inputType);
+    }
+
+    if (functionType.kind !== 'function') {
+        context.errors.push(createError(`Expression $0 is not callable`, [expression]));
+        return getAnyType();
+    }
+
+    const asMethod = functionType as FunctionType;
+    const inputMatches = checkIsAssignable(asMethod.input, inputType);
+
+    if (!inputMatches) {
+        context.errors.push(createError(`Input for method $0 does not match declared`, [expression.target]));
+    }
+
+    expression._runtime = expression._runtime || { target: callable };
+    expression._runtime.target = callable;
+    return asMethod.output;
+}
+
+export function typingsFromNPM(module: string) : Type {
+    const installPath = path.join(util.getUserHome(), 'livelang');
+    if (!fs.existsSync(installPath)) fs.mkdirSync(installPath);
+
+    // First try to install the module and look for built in typings
+    try {
+        const result = child.execSync('npm install ' + module, {cwd: installPath});
+        const packageJSON = require(path.join(installPath, 'node_modules', module, 'package.json'));
+        if (packageJSON.typings) {
+            return typingsFromTypescript(path.join(installPath, 'node_modules', module, packageJSON.typings));
+        }
+    }catch(e) {
+        console.error("Error installing npm module");
+        console.error(e);
+    }
+
+    // Otherwise, try get a standalone types module and use those
+    try {
+        const result = child.execSync('npm install @types/' + module, {cwd: installPath});
+        return typingsFromTypescript(path.join(installPath, 'node_modules', '@types', module, 'index.d.ts'));
+    } catch(e) {
+        console.error("Error installing @types for module");
+        console.error(e);
+    }
+
+    console.error('literally everything failed');
+    return getAnyType();
+}
+
+export function typingsFromTypescript(filepath: string) : Type {
+
+    const fileContents = fs.readFileSync(filepath).toString();
+    const program = ts.createProgram([filepath], {types: [], rootDir: path.dirname(filepath), target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS});
+    const sourceFile = program.getSourceFile(filepath);
+    const typeChecker = program.getTypeChecker();
+
+    const symbol = typeChecker.getSymbolAtLocation(sourceFile);
+    if (!symbol) {
+        console.log('types has no symbol... no exports?');
+        return getAnyType();
+    }
+
+    function typeOfSymbol(symbol: ts.Symbol) : Type {
+        if (symbol.exports) {
+            return createMapType(_.mapObject(symbol.exports, typeOfSymbol), symbol.name);
+        }
+
+        // probably need to ensure the 0th declaration here is always the one we want
+        const typeOf = typeChecker.getTypeOfSymbolAtLocation(symbol, symbol.declarations[0]);
+        const properties = typeChecker.getPropertiesOfType(typeOf);
+
+        if (properties && properties.length) {
+            let map = {};
+            properties.forEach(prop => {
+                map[prop.name] = typeOfSymbol(prop);
+            });
+            return createMapType(map, symbol.name);
+        }
+
+        return getAnyType();
+    }
+
+    return typeOfSymbol(symbol) || getAnyType();
+}
+
 export function typeCheckExpression(expression: AST.ExpressionType, modContext: ModuleTypeCheckContext, scope: Scope): Type {
     if (!expression) {
         return b.null;
@@ -415,64 +551,7 @@ export function typeCheckExpression(expression: AST.ExpressionType, modContext: 
             return b.string;
         }
         else if (expression.type === 'expressioncallExpression') {
-
-            const inputType = typeCheckExpression(expression.input, modContext, scope);
-
-            // We resolve the callable here, why? We mostly want to do everything we can
-            // in the type checking phase. Otherwise we defer until interpreter phase, which really
-            // we just want to take stuff and do stuff instead of checking things and deciding things (I think?)
-            let functionType: Type;
-            let callable: AST.CallableLiteral;
-
-            if (expression.target.type === 'expressionidentifier') {
-
-                // Special functions
-                if (expression.target.value === 'import') {
-
-                    // Importing another module resolves to the type of that module
-                    const arg = expression.input.value[0];
-                    if (!arg || arg.type !== 'expressionIdentifier') {
-                        context.errors.push(genericError('Must specify a module to import', expression));
-                        return getAnyType();
-                    }
-
-                    const identifier = arg as AST.Identifier;
-                    const mod = context.modulesByIdentifier()[identifier.value];
-
-                    if (!mod) {
-                        context.errors.push(genericError(`Couldn't find a module named ${identifier.value}`, identifier));
-                        return getAnyType();
-                    }
-
-                    return typeCheckModule(mod.module, modContext);
-                }
-
-                callable = resolveFunctionByIdentifier(expression.target.value, { inputType }, modContext, scope);
-                functionType = typeCheckExpression(callable, modContext, scope) as FunctionType;
-            }
-            else {
-                functionType = typeCheckExpression(expression.target, modContext, scope) as FunctionType;
-            }
-
-            const checkFunction = (inputType: Type, func: FunctionType) => {
-                return checkIsAssignable(func.input, inputType);
-            }
-
-            if (functionType.kind !== 'function') {
-                context.errors.push(createError(`Expression $0 is not callable`, [expression]));
-                return getAnyType();
-            }
-
-            const asMethod = functionType as FunctionType;
-            const inputMatches = checkIsAssignable(asMethod.input, inputType);
-
-            if (!inputMatches) {
-                context.errors.push(createError(`Input for method $0 does not match declared`, [expression.target]));
-            }
-
-            expression._runtime = expression._runtime || { target: callable };
-            expression._runtime.target = callable;
-            return asMethod.output;
+            return typeCheckCallExpression(expression, modContext, scope);
         }
         else if (expression.type === 'expressionmemberAccess') {
 
@@ -663,4 +742,10 @@ export function typeCheckModule(module: AST.ModuleNode, context?: ModuleTypeChec
     module.children.forEach(processChild);
 
     return { context, type: null };
+}
+
+export function createChecker(module: AST.ModuleNode[]) : TypeChecker {
+    return node => {
+        return getAnyType();
+    }
 }

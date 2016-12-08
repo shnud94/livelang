@@ -34,6 +34,8 @@
     "@types/node": "^6.0.46",
     "@types/react": "^0.14.37",
     "@types/react-dom": "^0.14.17",
+    "@types/shelljs": "^0.3.33",
+    "@types/sockjs": "^0.3.30",
     "@types/underscore": "^1.7.33",
     "chokidar": "^1.6.1",
     "debug": "^2.2.0",
@@ -58,7 +60,10 @@
     "nearley": "^2.7.8",
     "react": "^15.3.2",
     "react-dom": "^15.3.2",
+    "shelljs": "^0.7.5",
+    "sockjs": "^0.3.18",
     "sync-promise": "^1.0.1",
+    "sync-request": "^3.0.1",
     "typescript": "^2.0.10",
     "underscore": "^1.8.3"
   }

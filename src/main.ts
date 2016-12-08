@@ -1,13 +1,15 @@
 import * as electron from 'electron';
-import './typescript/prototype';
-import * as settings from './typescript/settings/index';
-import {LLResult} from './typescript/util';
+import './renderer/prototype';
+import * as settings from './renderer/settings/index';
+import {LLResult} from './renderer/util';
 import * as path from 'path';
 import * as _fs from 'fs';
-import {template} from './typescript/view/menu';
+import {template} from './renderer/view/menu';
 const fs: typeof _fs = require('fs-extra');
 const app = electron.app
 const BrowserWindow = electron.BrowserWindow
+import './main/index'
+import {ipcMain} from 'electron'
 
 let liveLang: LiveLang;
 class LiveLang {

@@ -140,6 +140,26 @@ export const returnStatement: TextToValue<AST.ReturnStatement> = {
     }
 }
 
+export const typeCastExpression: TextToValue<AST.TypeCastExpression> = {
+    id: 'returnStatement',
+    valueFromComponents: components => {
+        const objs = justObjects(components);
+        return {
+            type: 'expressionTypeCast',
+            expression: objs[0],
+            expressionType: objs[1]
+        }
+    },
+    getTextSpecs() { // looks like a generic, i.e: <Type>
+        return [
+            expression,
+            '<',
+            typeExpression,
+            '>'
+        ]
+    }
+}
+
 const objectField = () => ({all: [identifier, __, ':', __, expression]});
 
 export const mapLiteral: TextToValue<AST.MapLiteralNode> = {
@@ -402,7 +422,8 @@ const expressions = [
     binaryExpression,    
     prefixExpression,    
     memberAccessExpression,
-    callExpression,    
+    callExpression,
+    typeCastExpression
 ];
 
 export const expression: TextToValue<AST.ExpressionType> = {

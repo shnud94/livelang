@@ -62,10 +62,16 @@ export interface ImportNode extends CodeNode {
     identifier: Identifier
 }
 
-export type ExpressionType = Identifier | CallExpressionNode | MemberAccessExpression | FunctionAccessExpression | ArrayLiteralNode | NumericLiteralNode | MapLiteralNode | StringLiteralNode | CallableLiteral;
+export type ExpressionType = Identifier | CallExpressionNode | MemberAccessExpression | FunctionAccessExpression | ArrayLiteralNode | NumericLiteralNode | MapLiteralNode | StringLiteralNode | CallableLiteral | TypeCastExpression;
 export interface Identifier extends CodeNode {
     type: 'expressionidentifier'
     value: string
+}
+
+export interface TypeCastExpression extends CodeNode {
+    type: 'expressionTypeCast',
+    expression: ExpressionType
+    expressionType: Type
 }
 
 export interface ReturnStatement extends CodeNode {
