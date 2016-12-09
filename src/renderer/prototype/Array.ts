@@ -3,6 +3,11 @@ interface Array<T> {
     bringToFront(item: T)
     pushToBack(item: T)
     swap(a: number, b: number)
+    sum() : number
+}
+
+Array.prototype.sum = function() {
+    return this.reduce((prev, curr) => prev + curr, 0);
 }
 
 Array.prototype.last = function() {

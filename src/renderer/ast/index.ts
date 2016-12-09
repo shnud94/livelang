@@ -1,6 +1,7 @@
 import {EventSource} from '../util/events';
 import {Type} from '../types/index';
 import * as Types from '../types/index';
+import * as _ from 'underscore'
 import {RunTimeRepresentation} from '../interpreter/runtime/reps';
 
 export type CodeNodeType = string;
@@ -224,3 +225,43 @@ export function hasParent(a: Nodes, b: Nodes) {
 
     return hasParent(a._parent, b); 
 }
+
+
+let lastId = Number.MIN_SAFE_INTEGER;
+export function nextId() : string {
+    return (++lastId).toString();
+}
+
+export function createNode(node: any) : any {
+    (node as any)._id = nextId();
+    return node;
+}
+
+export const reviveNode = (val: any, parent: Nodes = null, storeById: any = {}) => {
+    if (Array.isArray(val)) {
+        val.forEach(val => reviveNode(val, parent, storeById));
+    }
+    else if (val.type) {
+        // Assume we've revived a code node
+        // Add id and parent
+        // Keep existing ID if possible
+        if (!val._id) val._id = nextId();
+
+        storeById[val._id] = val;
+        val._parent = null;
+        reviveChildren(val, storeById);
+        // Order is important here, can't add parent to children before
+        // reviving them, because then we have a circular reference
+        if (!val) debugger;
+        val._parent = parent;
+    }
+};
+
+export const reviveChildren = (object: Nodes, storeById: any  = {}) => {
+    _.keys(object).filter(k => !k.startsWith('_')).forEach(key => {
+        const val = object[key];
+        if (val && typeof(val) === 'object') {
+            reviveNode(val, object, storeById);
+        }
+    });
+};

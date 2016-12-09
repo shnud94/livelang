@@ -1,12 +1,6 @@
-import * as program from '../program';
-import {AST, Program} from '../program';
-import * as $ from 'jquery';
-import * as util from './util';
 import {EventSource} from '../util/events';
-import * as Frontend from '../frontend/index';
 import {TextComponent} from '../frontend/index';
 import {TypeCheckContext} from '../types/checker';
-import * as js from '../frontend/javascriptStyle';
 
 export type ComponentDescription = string;
 

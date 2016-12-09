@@ -67,7 +67,8 @@ export class ProjectView extends React.Component<ProjectViewProps, ProjectViewSt
     getContentView() {
         if (this.state.openFile) {
             return React.createElement(ModuleView, {
-                moduleHandle: this.state.openFile
+                moduleHandle: this.state.openFile,
+                project: this.props.project
             });
         }
         else {

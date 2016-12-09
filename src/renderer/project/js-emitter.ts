@@ -50,7 +50,7 @@ export function emitChildren(children: AST.ModuleChild[]) : string {
     }).join('\n');
 }
 
-export function emitCallExpression(expression: AST.CallExpressionNode) : string {
+export function emitCallExpression(expression: AST.CallExpressionNode, emitOptions: JSEmitOptions = getDefaultOptions()) : string {
     if (expression.target.type === 'expressionidentifier') {
 
         // Convert to binary operator if we can
@@ -67,7 +67,7 @@ export function emitCallExpression(expression: AST.CallExpressionNode) : string 
     }
 
     const stripBrackets = input => input.substr(1, input.length - 2);
-    const args =  (expression.input ? stripBrackets(emitExpression(expression.input)) : '') // remove brackets from livelang array literal
+    const args =  (expression.input ? stripBrackets(emitExpression(expression.input, emitOptions, true)) : '') // remove brackets from livelang array literal
     return emitExpression(expression.target) + '(' + args + ')'
 }
 
@@ -83,15 +83,7 @@ export function getSockJs() : string {
 }
 
 export function wrapEmittedExpression(expression: string, node: AST.ExpressionType, emitOptions: JSEmitOptions = getDefaultOptions()) : string {
-
-    const type = emitOptions.checker(node);
-    if (!type.identifier) return expression;
-
-    if (type.identifier === 'JSX.Element') {
-
-    }
-
-    return expression;
+    return `livelang.touch(${node._id}, ${expression})`;
 }
 
 export function emitLibrary(emitOptions: JSEmitOptions = getDefaultOptions()) : string {
@@ -102,11 +94,21 @@ export function emitLibrary(emitOptions: JSEmitOptions = getDefaultOptions()) : 
                  window.livelang = window.livelang || {};
                  livelang.sock = new SockJS('${emitOptions.endpoint}');
                  var open = false;
+                 livelang.message = function(msg) {
+                    if (!open) {
+                        return setTimeout(livelang.message.bind(null, msg), 500);
+                    }
+                    sock.send(msg);
+                 }
                  livelang.sendCallableStats = function(args) {
                     if (!open) {
                         return setTimeout(livelang.sendCallableStats.bind(null, args), 500);
                     }
                     sock.send(args);
+                 }
+                 livelang.touch = function(id, expr) {
+                    livelang.message(JSON.stringify({_id: id, expression: expr}));
+                    return expr;
                  }
                  var sock = livelang.sock;
                  sock.onopen = function() {
@@ -136,7 +138,7 @@ export function emitCallable(callable: AST.CallableLiteral, emitOptions: JSEmitO
     '\n}'
 }
 
-export function emitExpression(expression: AST.ExpressionType, emitOptions: JSEmitOptions = getDefaultOptions()) : string {
+export function emitExpression(expression: AST.ExpressionType, emitOptions: JSEmitOptions = getDefaultOptions(), noWrap: boolean = false) : string {
 
     let result = '';
 
@@ -168,6 +170,8 @@ export function emitExpression(expression: AST.ExpressionType, emitOptions: JSEm
     else if (expression.type === 'expressioncallableLiteral') {
         result = emitCallable(expression, emitOptions);
     }
+
+    if (noWrap) return result;
 
     return wrapEmittedExpression(result, expression, emitOptions);
 }

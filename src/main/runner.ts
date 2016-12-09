@@ -8,11 +8,14 @@ ipcMain.on('run', (event, id) => {
     }
     currentWindow.loadURL('file://' + __dirname + '/../../src/blank.html');
     currentWindow.webContents.openDevTools();
+    let done = false;
     currentWindow.webContents.on('did-finish-load', () => {
+        if (done) return;
         currentWindow.webContents.executeJavaScript(`
             var my_awesome_script = document.createElement('script');
             my_awesome_script.setAttribute('src','http://localhost:3456/${id}');
             document.head.appendChild(my_awesome_script);
-        `)
+        `);
+        done = true;
     });
 });

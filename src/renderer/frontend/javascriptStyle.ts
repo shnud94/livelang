@@ -1,12 +1,8 @@
-import * as program from '../program';
-import {AST, Program} from '../program';
+import * as AST from '../ast/index'
 import * as _ from 'underscore';
-import * as $ from 'jquery';
 import * as types from '../types/index';
 import 'fuzzyset.js';
-import * as index from './index';
-import * as View from '../view/index';
-import {TextToValue, TextDescription, TextSpec} from './index';
+import {TextToValue, TextSpec} from './index';
 
 const frontendId = 'javascript';
 const justObjects = (something: any) => {

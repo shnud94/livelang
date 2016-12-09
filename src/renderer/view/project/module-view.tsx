@@ -18,7 +18,8 @@ import * as types from '../../types/index';
 import * as jsEmitter from '../../project/js-emitter'
 
 interface ModuleViewProps {
-    moduleHandle: project.ModuleHandle
+    moduleHandle: project.ModuleHandle,
+    project: project.LiveLangProject
 }
 
 interface ModuleViewState {
@@ -32,8 +33,31 @@ export class ModuleView extends React.Component<ModuleViewProps, ModuleViewState
         this.state = {
             dirty: false
         }
+
+        props.project.onNewRunSession.listen(session => {
+
+            this.lineView.decorations.removeAll()
+            session.onEvent = event => {
+
+                if (event.event === 'nodeResult') {
+                    const node = event.node as AST.Nodes;
+                    if (!node.source) {
+                        console.error('Node has no source');
+                        console.error(node);
+                        return;
+                    }
+
+                    const locationInText = this.lineView.text.getLineAndOffsetForChar(node.source.start);
+
+                    if (locationInText.foundOffset >= 0) {
+                         this.lineView.decorations.addEndOfLineDecoration(JSON.stringify(event.result), locationInText.foundLine)
+                    }
+                }
+            }
+        })
     }
 
+    lineView: lineView.LineView<any> | null = null
     lastOpenFile?: project.ModuleHandle
 
     onLineViewContentChanged(lineView: lineView.LineView<any>, content: string) {
@@ -50,8 +74,9 @@ export class ModuleView extends React.Component<ModuleViewProps, ModuleViewState
     setContent(content: HTMLElement | null) {
         if (content && this.lastOpenFile !== this.props.moduleHandle) {
             $(content).empty();
-            const view = lineView.create(content, {
-                onContentChange: _.debounce(() => this.onLineViewContentChanged(view, view.getAllText()), 250)
+
+            this.lineView = new lineView.LineView(content, {
+                onContentChange: _.debounce(() => this.onLineViewContentChanged(this.lineView, this.lineView.text.getAllText()), 250)
             }, () => [{ content: this.props.moduleHandle.content }])
 
             this.lastOpenFile = this.props.moduleHandle

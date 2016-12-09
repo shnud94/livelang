@@ -1,25 +1,26 @@
 import '../prototype/index';
 import * as AST from '../ast/index';
 import * as fs from 'fs';
-import * as program from '../program';
 import * as _ from 'underscore';
 import * as chokidar from 'chokidar';
 import * as path from 'path';
 import * as parser from '../parser/custom';
 import * as projectView from '../view/project/project-view';
 import * as $ from 'jquery';
-import * as electron from 'electron';
 import * as jsEmitter from './js-emitter'
 import * as style from '../frontend/javascriptStyle'
 import * as checker from '../types/checker'
 import * as http from 'http'
 import {ipcRenderer} from 'electron'
+import {EventSource} from '../util/events'
 const sockjs = require('sockjs')
 
+
+let messageListener = console.log.bind(console);
 const echo = sockjs.createServer({ sockjs_url: 'http://cdn.jsdelivr.net/sockjs/1.0.1/sockjs.min.js' });
 echo.on('connection', function(conn) {
     conn.on('data', function(message) {
-        console.log(message);
+        messageListener(message);
     });
     conn.on('close', function() {});
 });
@@ -57,7 +58,9 @@ export interface ModuleHandle {
     reload()
 }
 
-
+export class RunSession {
+    onEvent: Function
+}
 
 export class LiveLangProject {
 
@@ -95,6 +98,8 @@ export class LiveLangProject {
         this.render();
     }
 
+    onNewRunSession = new EventSource<RunSession>();
+
     render() {
         projectView.mount($('#livelang-root')[0], this);
     }
@@ -113,15 +118,15 @@ export class LiveLangProject {
     }
 
     onProjectChanged() {
-        const modules = this.getAllModules();
-        const parsed = modules.map(module => parser.parseSpecCached(style.theModule, module._savedContent, style.theModule.id));
-        const results: AST.ModuleNode[] = parsed.map(p => {
+        const unparsed = this.getAllModules();
+        const parsed = unparsed.map(module => parser.parseSpecCached(style.theModule, module._savedContent, style.theModule.id));
+        let modules: AST.ModuleNode[] = parsed.map(p => {
             if (p.error) {
                 console.error(p.error);
             }
             return p.result;
         }).filter(m => m != null);
-        const modulesByIdentifier = _.indexBy(results, m => m.identifier.value)
+        const modulesByIdentifier = _.indexBy(modules, m => m.identifier.value)
         const mainModule = modulesByIdentifier['main'];
 
         if (!mainModule) {
@@ -129,12 +134,32 @@ export class LiveLangProject {
             return;
         }
 
-        checker.typeCheckModule(mainModule);
-        const js = jsEmitter.emitJs(results, {checker: checker.createChecker(results), endpoint: 'http://localhost:9999'});
-        console.log(js);
+        let nodesById = {};
+        modules.forEach(mod => AST.reviveNode(mod, null, nodesById));
 
+        checker.typeCheckModule(mainModule);
+        const js = jsEmitter.emitJs(modules, {checker: checker.createChecker(modules), endpoint: 'http://localhost:9999'});
         files[0] = js;
+        const session = new RunSession();
+        messageListener = message => {
+
+            if (!session.onEvent) {
+                console.log('no event handler');
+                console.log(message);
+                return;
+            }
+            message = JSON.parse(message);
+            if (message._id && nodesById[message._id]) {
+                const node = nodesById[message._id];
+                session.onEvent({
+                    event: 'nodeResult',
+                    node,
+                    result: _.omit(message, '_id')
+                })
+            }
+        };
         ipcRenderer.send('run', 0);
+        this.onNewRunSession.message(session)
     }
 
     getHandleFromFile(filename: string): ModuleHandle | null {
