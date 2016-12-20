@@ -3,6 +3,7 @@ import {Type} from '../types/index';
 import * as Types from '../types/index';
 import * as _ from 'underscore'
 import {RunTimeRepresentation} from '../interpreter/runtime/reps';
+import {type} from "os";
 
 export type CodeNodeType = string;
 
@@ -18,7 +19,6 @@ interface CodeNodeRuntime {
      */
     type?: Type
 }
-
 
 export type Nodes = AssignmentNode | DeclarationNode | ModuleNode | Type | Identifier | CallExpressionNode | MemberAccessExpression | ExpressionType | MapLiteralNode | ReturnStatement;
 
@@ -141,9 +141,6 @@ export interface CallExpressionNode extends CodeNode {
     type: 'expressioncallExpression'
     target: ExpressionType
     input?: ArrayLiteralNode
-    _runtime: CodeNodeRuntime & {
-        target: CallableLiteral
-    }
 }
 
 export type ModuleChild = DeclarationNode | ExpressionType | AssignmentNode | Type | Scope | ModuleNode | Type | ReturnStatement;
@@ -263,4 +260,35 @@ export const reviveChildren = (object: Nodes, storeById: any  = {}) => {
             reviveNode(val, object, storeById);
         }
     });
+};
+
+export const eachChild = (val: any, doer: (node: Nodes) => void) => {
+   if (val != null && typeof(val) === 'object') {
+       if (val.type) {
+           doer(val);
+           _.keys(val).forEach(key => {
+               if (key === '_parent') return; // stop infinite recursion
+               eachChild(val[key], doer);
+           })
+       }
+       else if (Array.isArray(val)) {
+           val.forEach(c => eachChild(c, doer));
+       }
+   }
+};
+
+export const mapChildren = (val: any, doer: (node: Nodes) => void) => {
+    if (val != null && typeof(val) === 'object') {
+        if (val.type) {
+            val = doer(val);
+            _.keys(val).forEach(key => {
+                if (key === '_parent') return val[key]; // stop infinite recursion
+                val[key] = mapChildren(val[key], doer);
+            })
+        }
+        else if (Array.isArray(val)) {
+            val = val.map(c => mapChildren(c, doer));
+        }
+    }
+    return val;
 };

@@ -61,7 +61,7 @@ export class ModuleView extends React.Component<ModuleViewProps, ModuleViewState
                                 valString = JSON.stringify(val);
                             }
                             this.lineView.decorations.addEndOfLineDecoration(`
-                                <span class="valueDecoration">${valString}<span class="type">${typeString}</span></span>
+                                <span class="valueDecoration"><span class="value">${valString}</span><span class="type">${typeString}</span></span>
                             `.trim(), locationInText.foundLine)
                         }
                         else {

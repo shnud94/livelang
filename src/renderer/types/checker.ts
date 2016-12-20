@@ -18,7 +18,7 @@ import * as fs from 'fs';
 import * as child from 'child_process';
 
 export type TypeChecker = (node: AST.Nodes) => Type
-export type TypeCheckError = TypeMismatchError | TypeErrorVague | TypeErrorUndefined | GenericError;
+export type TypeCheckError = TypeMismatchError | TypeErrorGeneric | TypeErrorUndefined | GenericError;
 
 export type GenericError = {
     kind: 'generic',
@@ -31,8 +31,8 @@ export type TypeErrorUndefined = {
     source: AST.Identifier
 }
 
-export interface TypeErrorVague {
-    kind: 'typeError',
+export interface TypeErrorGeneric {
+    kind: 'typeErrorGeneric',
     value: string,
     nodes: any[]
 }
@@ -125,6 +125,12 @@ export function isIntegerType(type: Type) {
 }
 
 export function checkIsAssignable(dest: Type, source: Type): boolean {
+    if (dest.kind === 'reference' || source.kind === 'reference') {
+        // We can't compare two types if we don't know what they refer to. This function is
+        // purely for checking the compatiblity of types
+        throw new Error('Reference types should have been resolved by this point');
+    }
+
     // Any type
     if (dest.kind === 'any' || source.kind === 'any') return true;
 
@@ -134,11 +140,6 @@ export function checkIsAssignable(dest: Type, source: Type): boolean {
     }
 
     if (dest.kind === 'builtin' && source.kind === 'builtin' && dest.identifier === source.identifier) {
-        // These refer to the same type as far as I'm aware :O
-        return true;
-    }
-
-    if (dest.kind === 'reference' && source.kind === 'reference' && dest.identifier === source.identifier) {
         // These refer to the same type as far as I'm aware :O
         return true;
     }
@@ -194,9 +195,9 @@ export function genericError(error: string, source: AST.Nodes): GenericError {
     }
 }
 
-export function createError(error: string, nodes: AST.CodeNode[] = []): TypeErrorVague {
+export function createError(error: string, nodes: AST.CodeNode[] = []): TypeErrorGeneric {
     return {
-        kind: 'typeError',
+        kind: 'typeErrorGeneric',
         value: error,
         nodes: nodes
     }
@@ -218,7 +219,7 @@ export class ModuleTypeCheckContext {
     // We store resolved types on a module by module basis, this is so if we
     // have seperate modules with types with the same name, hopefully we handle that
     // more appropriately
-    types: { [identifier: string]: Type } = {}
+    typesByIdentifier: { [identifier: string]: Type } = {}
 }
 
 export class TypeCheckContext {
@@ -229,7 +230,6 @@ export class TypeCheckContext {
     }
     errors: TypeCheckError[] = []
     warnings: TypeCheckError[] = []
-    resolutionContext = new ResolutionContext({})
     typesByNodeId: { [nodeId: string]: {node: AST.Nodes, type?: Type} } = {}
 
     checkType: TypeChecker = (node) => this.typesByNodeId[node._id] ? this.typesByNodeId[node._id].type : getAnyType()
@@ -242,7 +242,7 @@ export function typeCheckDeclaration(declaration: AST.DeclarationNode, context: 
     let declarationType: Type;
 
     if (declaration.typeExpression) {
-        declarationType = typeCheckContext.resolutionContext.resolveType(declaration.typeExpression);
+        declarationType = declaration.typeExpression;
     }
 
     if (declaration.valueExpression) {
@@ -323,7 +323,7 @@ export function typeCheckAssignment(assignment: AST.AssignmentNode, modContext: 
     return decType;
 }
 
-export function resolveFunctionByIdentifier(identifier: string, match: { inputType?: Type, outputType?: Type }, context: ModuleTypeCheckContext, scope: Scope): AST.CallableLiteral {
+export function resolveFunctionByIdentifier(identifier: string, match: { inputType?: Type, outputType?: Type }, context: ModuleTypeCheckContext, scope: Scope, errorSource: AST.Nodes): AST.CallableLiteral | null {
     // We assume all of these are callable literals, but they could not be, TODO: fix
     const found = resolveMultipleDeclarationsByIdentifier(identifier, context.typeCheckContext, scope);
 
@@ -347,13 +347,14 @@ export function resolveFunctionByIdentifier(identifier: string, match: { inputTy
     });
 
     if (matches.length > 1) {
-        context.typeCheckContext.errors.push(createError('Function call is ambiguous'));
+        context.typeCheckContext.errors.push(createError('Function call is ambiguous', [errorSource]));
         return null;
     }
     if (matches.length === 0) {
-        context.typeCheckContext.errors.push(createError('Function has no matching input'));
+        context.typeCheckContext.errors.push(createError('Function has no matching input', [errorSource]));
         return null;
     }
+
     return matches[0].valueExpression as AST.CallableLiteral;
 }
 
@@ -396,7 +397,7 @@ export function typeCheckCallExpression(expression: AST.CallExpressionNode, modC
             return typingsFromNPM(module);
         }
 
-        callable = resolveFunctionByIdentifier(expression.target.value, { inputType }, modContext, scope);
+        callable = resolveFunctionByIdentifier(expression.target.value, { inputType }, modContext, scope, expression);
         functionType = typeCheckExpression(callable, modContext, scope) as FunctionType;
     }
     else {
@@ -408,7 +409,7 @@ export function typeCheckCallExpression(expression: AST.CallExpressionNode, modC
     }
 
     if (functionType.kind !== 'function') {
-        context.errors.push(createError(`Expression $0 is not callable`, [expression]));
+        context.errors.push(createError(`Expression is not a function`, [expression]));
         return getAnyType();
     }
 
@@ -418,9 +419,6 @@ export function typeCheckCallExpression(expression: AST.CallExpressionNode, modC
     if (!inputMatches) {
         context.errors.push(createError(`Input for method $0 does not match declared`, [expression.target]));
     }
-
-    expression._runtime = expression._runtime || { target: callable };
-    expression._runtime.target = callable;
     return asMethod.output;
 }
 
@@ -612,27 +610,24 @@ export function typeCheckExpression(expression: AST.ExpressionType, modContext: 
     return type;
 }
 
-class ResolutionContext {
-
-    constructor(public typesByIdentifier: {[identifier: string] : Type}) {
-        // Add all built in types
-        _.extend(typesByIdentifier, b);
-    }
-
-    resolveType(type: Type) {
-        return resolveReferenceTypes(type, this);
-    }
-
-    unresolved: Type[] = [];
-}
-
-
 let lastReference: string = null;
-export function resolveReferenceTypes(type: Type, context: ResolutionContext) : Type {
-    const recurse = type => resolveReferenceTypes(type, context);
+
+/**
+ * Assumes all the built in types exist, uses them as part of this function
+ */
+export function resolveReferenceTypesInType(type: Type, context: ModuleTypeCheckContext) : Type {
+
+    const recurse = type => resolveReferenceTypesInType(type, context);
+    const tryResolve = identifier => {
+        if (context.typesByIdentifier[identifier]) {
+            return context.typesByIdentifier[identifier];
+        }
+        // Fallback to a built in type (otherwise will return null)
+        return b[identifier] || null;
+    }
 
     if (type.kind === 'reference') {
-        const resolved = context.typesByIdentifier[type.identifier]
+        const resolved = tryResolve(type.identifier);
 
         if (resolved) {
             if (lastReference == type.identifier) {
@@ -643,7 +638,7 @@ export function resolveReferenceTypes(type: Type, context: ResolutionContext) : 
             return recurse(resolved);
         }
         else {
-            context.unresolved.push(type);
+            console.error('Unresolved type: ' + type);
             return getAnyType();
         }
     }
@@ -673,19 +668,6 @@ export function resolveReferenceTypes(type: Type, context: ResolutionContext) : 
         console.warn("Unsupported type, is this okay?");
         return type;
     }
-}
-
-export function gatherTypesByIdentifier(module: AST.ModuleNode) : ResolutionContext {
-
-    const types = module.children.filter(child => child.type === 'type') as Type[];
-    const context = new ResolutionContext(_.indexBy(types, 'identifier'));
-
-    _.keys(context.typesByIdentifier).forEach(key => {
-        const type = context.typesByIdentifier[key];
-        context.typesByIdentifier[key] = resolveReferenceTypes(type, context);
-    })
-
-    return context;
 }
 
 interface ModuleTypeCheckResult {
@@ -725,7 +707,6 @@ export function typeCheckModule(module: AST.ModuleNode, context?: TypeCheckConte
 
     const moduleContext = new ModuleTypeCheckContext(module, context);
     context.modules.push(moduleContext);
-    context.resolutionContext = gatherTypesByIdentifier(module);
 
     function processChild(child: AST.ModuleChild) {
         if (child.type.startsWith('expression')) {
@@ -743,6 +724,31 @@ export function typeCheckModule(module: AST.ModuleNode, context?: TypeCheckConte
         [].concat(numbers.declarations, arrays.declarations)
     ]);
     libraryDeclarations.forEach(processChild);
+
+    function resolveAllReferenceTypes() {
+        // Gather all the types first
+        AST.eachChild(module, node => {
+            if (node.type === 'type' && node.kind !== 'reference' && node.identifier) {
+                moduleContext.typesByIdentifier[node.identifier] = node;
+            }
+        });
+
+        // Then make sure all their own types are resolved
+        _.mapObject(moduleContext.typesByIdentifier, val => resolveReferenceTypesInType(val, moduleContext))
+
+        // Thennnnnnn resolve all reference types in the code
+        AST.mapChildren(module, child => {
+            if (child.type === 'type' && child.kind === 'reference') {
+                return resolveReferenceTypesInType(child, moduleContext);
+            }
+            return child;
+        });
+
+        // We do all of these as separate steps because we need ALL the named types to exist before
+        // we go resolving references, we can't try and resolve references as we find them because.. well
+        // the named version it references might not exist yet
+    }
+    resolveAllReferenceTypes();
 
     // TODO: Prepopulate all declarations by identifier
     module.children.forEach(child => {

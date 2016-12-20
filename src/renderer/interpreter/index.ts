@@ -105,34 +105,6 @@ export function fetchDeclared(identifier: string, stack: Stack) {
 
 export function evaluateCallExpression(expr: AST.CallExpressionNode, context: RunContext) : RunTimeRepresentation<any> | void {
 
-    // If the call expression is calling a function, we can have multiple for the same identifier,
-    // thus these are binded at type check type.
-    const callable = evaluateExpression(expr._runtime.target || expr.target, context) as any;
-    
-    // Transfer our variables from the parent context into the child with new names
-    startChildStack(context);
-
-    let args = expr.input.value.map((input, index) => {
-        const rawInput = evaluateExpression(input, context);
-        if (callable.identifiers) {
-            context.stack.declared[callable.identifiers[index]] = rawInput;
-        }
-        return rawInput;
-    });
-    
-    let ret;
-    if (typeof(callable.rawValue) === 'function') {
-        ret = callable.rawValue.apply(null, [args]);        
-    }
-    else if (Array.isArray(callable.rawValue)) {
-        ret = evaluateBody(callable.rawValue as AST.ModuleChild[], context);
-    }
-    else {
-        log('Unsupported call expression');
-    }
-
-    endChildStack(context);
-    if (ret) return ret;    
 }
 
 export function evaluateBody(node: AST.ModuleChild[], context: RunContext) : RunTimeRepresentation<any> | void {

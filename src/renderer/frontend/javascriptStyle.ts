@@ -352,8 +352,7 @@ export const callExpression: TextToValue<AST.CallExpressionNode> = {
         const prev: AST.CallExpressionNode = {
             input: null,
             target: null,
-            type: 'expressioncallExpression',
-            _runtime: null
+            type: 'expressioncallExpression'
         }
 
         prev.target = assignParent(flat(components[0]) as AST.ExpressionType, prev);
@@ -377,7 +376,6 @@ export const binaryExpression: TextToValue<AST.CallExpressionNode> = (() => {
 
             const prev: AST.CallExpressionNode = {
                 type: 'expressioncallExpression',
-                _runtime: null,
                 target: null,
                 input: null
             };

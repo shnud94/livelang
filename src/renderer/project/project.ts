@@ -5,12 +5,13 @@ import * as _ from 'underscore';
 import * as chokidar from 'chokidar';
 import * as path from 'path';
 import * as parser from '../parser/custom';
-import * as projectView from '../view/project/project-view';
-import * as $ from 'jquery';
+import * as React from 'react';
+import * as ReactDOM from 'react-dom';
 import * as jsEmitter from './js-emitter'
 import * as style from '../frontend/javascriptStyle'
 import * as checker from '../types/checker'
 import * as http from 'http'
+import {ProjectView} from '../view/project/project-view'
 import {ipcRenderer} from 'electron'
 import {EventSource} from '../util/events'
 const sockjs = require('sockjs')
@@ -100,9 +101,15 @@ export class LiveLangProject {
     }
 
     onNewRunSession = new EventSource<RunSession>();
+    lastTypeCheck?: checker.TypeCheckContext
 
+    count = 0;
     render() {
-        projectView.mount($('#livelang-root')[0], this);
+        ReactDOM.render(React.createElement(ProjectView, {
+            project: this,
+            typeCheckContext: this.lastTypeCheck,
+            something: ++this.count
+        } as any), document.getElementById('livelang-root'));
     }
 
     initProject() {
@@ -139,29 +146,36 @@ export class LiveLangProject {
         modules.forEach(mod => AST.reviveNode(mod, null, nodesById));
 
         const checky = checker.createChecker(modules);
-        const js = jsEmitter.emitJs(modules, {checker: checky.checker, endpoint: 'http://localhost:9999'});
-        files[0] = js;
+        this.lastTypeCheck = checky.context;
 
-        const session = new RunSession(checky.checker);
-        messageListener = message => {
+        if (checky.context.errors) {
+            this.render();
+        }
+        else {
+            const js = jsEmitter.emitJs(modules, {checker: checky.checker, endpoint: 'http://localhost:9999'});
+            files[0] = js;
 
-            if (!session.onEvent) {
-                console.log('no event handler');
-                console.log(message);
-                return;
-            }
-            message = JSON.parse(message);
-            if (message._id && nodesById[message._id]) {
-                const node = nodesById[message._id];
-                session.onEvent({
-                    event: 'nodeResult',
-                    node,
-                    result: _.omit(message, '_id')
-                })
-            }
-        };
-        ipcRenderer.send('run', 0);
-        this.onNewRunSession.message(session)
+            const session = new RunSession(checky.checker);
+            messageListener = message => {
+
+                if (!session.onEvent) {
+                    console.log('no event handler');
+                    console.log(message);
+                    return;
+                }
+                message = JSON.parse(message);
+                if (message._id && nodesById[message._id]) {
+                    const node = nodesById[message._id];
+                    session.onEvent({
+                        event: 'nodeResult',
+                        node,
+                        result: _.omit(message, '_id')
+                    })
+                }
+            };
+            ipcRenderer.send('run', 0);
+            this.onNewRunSession.message(session)
+        }
     }
 
     getHandleFromFile(filename: string): ModuleHandle | null {

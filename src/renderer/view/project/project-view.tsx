@@ -6,19 +6,14 @@ import * as _ from 'underscore';
 import { CommandWindow, Command } from './command-window';
 import keys from '../util/keys';
 import * as $ from 'jquery';
+import * as errorsAndStuff from './errors';
 import * as programLineView from '../module-line-view';
 import { ModuleView } from './module-view';
-
-var count = 0;
-export function mount(element: HTMLElement, project: project.LiveLangProject) {
-    ReactDOM.render(React.createElement(ProjectView, {
-        project,
-        something: ++count
-    } as any), element);
-}
+import {TypeCheckContext} from "../../types/checker";
 
 export interface ProjectViewProps {
     project: project.LiveLangProject
+    typeCheckContext: TypeCheckContext
 }
 
 export interface ProjectViewState {
@@ -134,10 +129,19 @@ export class ProjectView extends React.Component<ProjectViewProps, ProjectViewSt
             commands: this.state.commands
         }, this.props);
 
+        let errors = null;
+        if (this.props.typeCheckContext && this.props.typeCheckContext.errors.length > 0) {
+            errors = this.props.typeCheckContext.errors.map(error => errorsAndStuff.renderError(error));
+        }
+
         return <div className="project-view">
             {this.state.commandWindowOpen && React.createElement(CommandWindow, commandWindowProps)}
 
             {this.getContentView()}
+
+            <div className="errors">
+                {errors}
+            </div>
         </div>
     }
 }

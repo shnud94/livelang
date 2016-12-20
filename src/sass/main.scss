@@ -1,6 +1,6 @@
 $color-blue: #03a9f4;
 $color-yellow: #f9e604;
-$color-red: #f90004;
+$color-red: #a92c2c;
 $color-black: #2f2f2f;
 $color-grey: #EEE;
 $color-grey-dark: #555;
@@ -8,7 +8,7 @@ $spacing-standard: 1rem;
 $z-index-command-window: 2;
 
 body {
-    font-size: 18px;
+    font-size: 15px;
     font-family: 'menlo', 'consolas', monospace;
     box-sizing: border-box;
     margin: 0;
@@ -30,6 +30,7 @@ input {
     min-height: 100%;
     min-width: 100%;
     overflow:hidden;
+    background: $color-black;
 }
 
 .horizontal {
@@ -97,7 +98,6 @@ input {
 }
 
 .content {
-    border: 1px solid #EEE;
     flex-grow: 1;
     overflow: auto;
     position: relative;
@@ -185,6 +185,8 @@ input {
     display: flex;
     min-height: 100%;
     overflow-y: scroll;
+    background: $color-black;
+    padding: 1em;
 
     span.text {
         &, &:focus, &:active, &:hover {
@@ -194,7 +196,7 @@ input {
 
     >.lines {
         position: relative;
-        background: black;
+        background: $color-black;
         color: white;
         margin: 0 auto;
         margin-right: 0;
@@ -254,9 +256,14 @@ input {
 .project-view {
     position: fixed;
     left: 0; top: 0; width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow:hidden;
 
-    .content {
-        width: 100%; height: 100%;
+    .content, .errors {
+        flex-grow: 1;
+        flex-shrink: 0;
+        overflow-y: auto;
     }
 }
 
@@ -306,7 +313,7 @@ input {
     }
     .title-wrap {
         padding: 0.66em 1em;
-        background: white;
+        background: #222;
 
         .title {
             margin: 0 auto;
@@ -325,10 +332,34 @@ input {
 .valueDecoration {
     font-size: 0.8em;
     margin: 0 1em;
-    opacity: 0.75;
-    .type {
-        margin-left: .5em;
+
+    .value, .type {
         padding: 0.25em .5em;
+    }
+    .value {
+        background: $color-grey-dark;
+    }
+    .type {
         background: $color-blue;
+    }
+}
+
+.errors {
+    display: flex;
+}
+
+.typeErrorGeneric {
+    background: $color-red;
+    padding: 0.75em 1rem;
+    color: white;
+    font-size: 0.8em;
+
+    .error {
+        margin-bottom: 0.6em;
+    }
+    .nodes {
+        padding: 0.6em 1rem;
+        background: rgba(255, 255, 255, 0.2);
+        display: table;
     }
 }
