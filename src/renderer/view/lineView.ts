@@ -447,18 +447,18 @@ export class LineView<T> {
             .on('mousedown mousemove mouseup' as any, (event: MouseEvent) => {
 
                 if (event.type === 'mousedown') {
-                    event.preventDefault();
+
                     const line = $(event.target).closest('.line');
 
                     if ($(event.target).hasClass('text')) {
                         focusAndStuff(event.target as HTMLElement)
                     }
                     else {
+                        event.preventDefault();
                         const toFocus = $(line).find('.text').last()[0];
                         focusAndStuff(toFocus);
                         util.setCaretFraction(toFocus, 1);
                     }
-
 
                     state.currentDrag = {
                         startLine: line,
@@ -597,7 +597,12 @@ function focusCharIndexInLine(line: HTMLElement, index: number): boolean {
     }, 0);
 
     if (!success) {
-        $(line).find('.text').last().focus();
+        const toFocus = $(line).find('.text').last()[0];
+        if (!toFocus) return false;
+
+        focusAndStuff(toFocus);
+        util.setCaretFraction(toFocus, 1);
+        return true;
     }
     return success;
 }
@@ -684,12 +689,7 @@ function handleArrow(event: KeyboardEvent, direction: string, element: HTMLEleme
         const line = enclosingLine(element);
         const focused = focusedCharIndexInLine(line);
         const sibling = dirNum < 0 ? $(line).prev('.line')[0] : $(line).next('.line')[0];
-        const success = focusCharIndexInLine(sibling, focused);
-        if (!success) {
-            const target = dirNum < 0 ? $(sibling).children('.text').last()[0] : $(sibling).children('.text').first()[0];
-            focusAndStuff(target);
-            util.setCaretFraction(target, dirNum < 0 ? 1 : 0);
-        }
+        focusCharIndexInLine(sibling, focused);
     }
 };
 
