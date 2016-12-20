@@ -59,6 +59,7 @@ export interface ModuleHandle {
 }
 
 export class RunSession {
+    constructor(public checky: checker.TypeChecker) {}
     onEvent: Function
 }
 
@@ -137,10 +138,11 @@ export class LiveLangProject {
         let nodesById = {};
         modules.forEach(mod => AST.reviveNode(mod, null, nodesById));
 
-        checker.typeCheckModule(mainModule);
-        const js = jsEmitter.emitJs(modules, {checker: checker.createChecker(modules), endpoint: 'http://localhost:9999'});
+        const checky = checker.createChecker(modules);
+        const js = jsEmitter.emitJs(modules, {checker: checky.checker, endpoint: 'http://localhost:9999'});
         files[0] = js;
-        const session = new RunSession();
+
+        const session = new RunSession(checky.checker);
         messageListener = message => {
 
             if (!session.onEvent) {

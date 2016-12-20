@@ -151,7 +151,11 @@ export function createAndType(choices: Type[], identifier?: string) : AndType {
     };
 }
 
-export function createOrType(choices: Type[], identifier?: string) : OrType {
+export function createOrType(choices: Type[], identifier?: string) : Type {
+    if (choices.length <= 1) {
+        return choices[0] || getAnyType();
+    }
+
     return {
         type: 'type',
         identifier: identifier,

@@ -203,7 +203,7 @@ input {
         .line {
             border: 1px solid transparent;
             &.focused {
-                border-color: $color-grey;
+                border-color: #484848;
             }
             transition: border 0.5s;
    
@@ -319,5 +319,16 @@ input {
             font-size: 0.8em;
             white-space: nowrap;
         }
+    }
+}
+
+.valueDecoration {
+    font-size: 0.8em;
+    margin: 0 1em;
+    opacity: 0.75;
+    .type {
+        margin-left: .5em;
+        padding: 0.25em .5em;
+        background: $color-blue;
     }
 }

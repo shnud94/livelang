@@ -47,11 +47,28 @@ export class ModuleView extends React.Component<ModuleViewProps, ModuleViewState
                         return;
                     }
 
+                    const type = session.checky(node);
                     const locationInText = this.lineView.text.getLineAndOffsetForChar(node.source.start);
+                    if (locationInText.foundOffset < 0) return;
 
-                    if (locationInText.foundOffset >= 0) {
-                         this.lineView.decorations.addEndOfLineDecoration(JSON.stringify(event.result), locationInText.foundLine)
-                    }
+                    const typeString = type ? types.typeToString(type) : 'Unknown';
+
+                    _.keys(event.result).forEach(k => {
+                        if (k === 'expression') {
+                            const val = event.result[k]
+                            let valString = val;
+                            if (typeof(valString) === 'object') {
+                                valString = JSON.stringify(val);
+                            }
+                            this.lineView.decorations.addEndOfLineDecoration(`
+                                <span class="valueDecoration">${valString}<span class="type">${typeString}</span></span>
+                            `.trim(), locationInText.foundLine)
+                        }
+                        else {
+
+                        }
+
+                    });
                 }
             }
         })

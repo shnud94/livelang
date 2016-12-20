@@ -24,7 +24,6 @@ export type Nodes = AssignmentNode | DeclarationNode | ModuleNode | Type | Ident
 
 export interface CodeNode {
     _id?: string
-    _runtime?: CodeNodeRuntime
     _parent?: Nodes
 
     // Display options for different language frontends, line breaks in javascript, all that stuff
