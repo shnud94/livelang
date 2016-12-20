@@ -3,7 +3,8 @@ interface Array<T> {
     bringToFront(item: T)
     pushToBack(item: T)
     swap(a: number, b: number)
-    sum() : number
+    sum() : number,
+    nullMap(mapper: (T) => T | null) : T[]
 }
 
 Array.prototype.sum = function() {
@@ -33,4 +34,8 @@ Array.prototype.swap = function (x,y) {
   this[x] = this[y];
   this[y] = b;
   return this;
+}
+
+Array.prototype.nullMap = function (mapper) {
+    return this.map(mapper).filter(v => v != null)
 }

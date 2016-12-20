@@ -295,33 +295,27 @@ export const callableLiteral: TextToValue<AST.CallableLiteral> = {
             body: []
         };
 
-        const input = _.flatten(components[1] as any);
-        const inputs = [];
-        let lastVar = null;
-        let addVarNoType = ident => inputs.push({type: AST.createIdentifier('any'), identifier: lastVar.value});
-        input.forEach(val => {
-            if (typeof(val) === 'string' && val.trim() === ',') {
-                if (lastVar) addVarNoType(lastVar);
-                lastVar = null;
+        const inputs = justObjects(components[1]);
+
+        // group each identifier with its type
+        const withTypes = _.flatten(inputs.map((input: AST.Nodes, index: number) => {
+
+            // ignore the types, we'll work with the argument identifiers
+            if (input.type !== 'expressionidentifier') {
                 return;
             }
 
-            if (val != null && typeof(val) === 'object' && val.type) {
-                if (lastVar) {
-                    inputs.push({
-                        type: val,
-                        identifier: lastVar.value
-                    });
-                    lastVar = null;
-                }
-                else {
-                    lastVar = val;
-                }
+            if (inputs[index + 1] && inputs[index + 1].type !== 'expressionidentifier') {
+                // we've got a type, return it with its type
+                return {identifier: input.value, type: inputs[index + 1]};
             }
-        });
-        if (lastVar) addVarNoType(lastVar);
+            else {
+                // no type m8, make one up
+                return {identifier: input.value, type: types.getAnyType()};
+            }
+        }));
 
-        node.input = inputs.map(input => assignParent(input, node));
+        node.input = withTypes.nullMap(input => assignParent(input, node));
         node.body = _.flatten(components[10] as any).filter(c => typeof(c) === 'object') as AST.ModuleChild[];
         node.output = justObjects(_.flatten(components[4] as any))[0] || AST.createIdentifier('null', node);
         return node;
@@ -330,11 +324,11 @@ export const callableLiteral: TextToValue<AST.CallableLiteral> = {
         '(',
         optionally(commaSeparated({all: [
             identifier, 
-            {'?' : {all: [__, ':', __, expression]}}
+            {'?' : {all: [__, ':', __, typeExpression]}}
         ]})),
         ')',
         __,
-        {'?' : {all: [__, ':', __, expression]}},
+        {'?' : {all: [__, ':', __, typeExpression]}},
         __,
         '->',
         __,
