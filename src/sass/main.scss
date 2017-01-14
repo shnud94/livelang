@@ -8,8 +8,8 @@ $spacing-standard: 1rem;
 $z-index-command-window: 2;
 
 body {
-    font-size: 15px;
-    font-family: 'menlo', 'consolas', monospace;
+    font-size: 13px;
+    font-family: menlo, 'consolas', monospace;
     box-sizing: border-box;
     margin: 0;
 }
@@ -213,10 +213,6 @@ input {
             &:focus {
                 border-color: darken($color-grey, 10%);
             }
-            .text {
-                font-family: monospace;
-            }
-
             .text.-warning {
                 border-bottom: 1px solid $color-yellow;
             }
@@ -264,6 +260,20 @@ input {
         flex-grow: 1;
         flex-shrink: 0;
         overflow-y: auto;
+
+
+    }
+}
+
+.horizontal-split-view {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    height: 100%;
+    > * {
+        width: 50%;
+        height: 100%;
     }
 }
 
@@ -305,6 +315,8 @@ input {
 
 .module-view {
 
+    display: flex;
+    flex-direction: column;
     height: 100%;
     &.-dirty {
         .title-wrap .title {

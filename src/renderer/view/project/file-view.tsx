@@ -18,7 +18,7 @@ import * as types from '../../types/index';
 import * as jsEmitter from '../../project/js-emitter'
 
 interface ModuleViewProps {
-    moduleHandle: project.ModuleHandle,
+    moduleHandle: project.FileHandle,
     project: project.LiveLangProject
 }
 
@@ -75,7 +75,7 @@ export class ModuleView extends React.Component<ModuleViewProps, ModuleViewState
     }
 
     lineView: lineView.LineView<any> | null = null
-    lastOpenFile?: project.ModuleHandle
+    lastOpenFile?: project.FileHandle
 
     onLineViewContentChanged(lineView: lineView.LineView<any>, content: string) {
 

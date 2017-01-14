@@ -1,3 +1,4 @@
+import { LiveLangProject } from '../../project/project';
 import * as checker from '../../types/checker';
 import * as AST from '../../ast/index';
 import * as React from 'react';
@@ -35,12 +36,19 @@ export function nodeToString(node: AST.Nodes) {
     }
 }
 
-export function renderError(error: checker.TypeCheckError) : JSX.Element | string {
+export function nodeToLine(node: AST.Nodes) {
+    
+}
+
+export function renderError(error: checker.TypeCheckError, project?: LiveLangProject) : JSX.Element | string {
     if (error.kind === 'typeErrorGeneric') {
         return <div className="typeError typeErrorGeneric">
             <div className="error">{error.value}</div>
             <div className="nodes">
                 {error.nodes.map(node => nodeToString(node))}
+            </div>
+            <div className="lines">
+                {error.nodes.map(node => nodeToLine(node))}
             </div>
         </div>
     }

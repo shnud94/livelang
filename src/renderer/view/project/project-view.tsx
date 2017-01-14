@@ -8,7 +8,7 @@ import keys from '../util/keys';
 import * as $ from 'jquery';
 import * as errorsAndStuff from './errors';
 import * as programLineView from '../module-line-view';
-import { ModuleView } from './module-view';
+import { ModuleView } from './file-view';
 import {TypeCheckContext} from "../../types/checker";
 
 export interface ProjectViewProps {
@@ -19,13 +19,13 @@ export interface ProjectViewProps {
 export interface ProjectViewState {
     commandWindowOpen: boolean,
     commands: Command[],
-    openFile: project.ModuleHandle | null
+    openFile: project.FileHandle | null
 }
 
 export class ProjectView extends React.Component<ProjectViewProps, ProjectViewState> {
 
     _lastCreatedFile: string
-    lastOpenFile?: project.ModuleHandle
+    lastOpenFile?: project.FileHandle
 
     constructor(props: ProjectViewProps) {
         super(props);
@@ -122,6 +122,19 @@ export class ProjectView extends React.Component<ProjectViewProps, ProjectViewSt
         });
     }
 
+    getOverviewView() {
+
+        return <div>
+
+
+
+
+
+
+        </div>
+
+    }
+
     render(): JSX.Element {
         const commandWindowProps = _.extend({
             onClose: this.onCommandWindowClose.bind(this),
@@ -137,7 +150,15 @@ export class ProjectView extends React.Component<ProjectViewProps, ProjectViewSt
         return <div className="project-view">
             {this.state.commandWindowOpen && React.createElement(CommandWindow, commandWindowProps)}
 
-            {this.getContentView()}
+            <div className="horizontal-split-view">
+                <div className="content-view">
+                    {this.getContentView()}
+                </div>
+
+                <div className="overview-view">
+                    {this.getOverviewView()}
+                </div>
+            </div>
 
             <div className="errors">
                 {errors}

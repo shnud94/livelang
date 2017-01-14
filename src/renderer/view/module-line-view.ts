@@ -15,7 +15,7 @@ interface ProgramLineViewOptions {
     onSuccessfulChange?()
 }
 
-export function create(moduleHandle: project.ModuleHandle, container: HTMLElement, options: ProgramLineViewOptions) {
+export function create(moduleHandle: project.FileHandle, container: HTMLElement, options: ProgramLineViewOptions) {
     $(container).empty();
 
     return {

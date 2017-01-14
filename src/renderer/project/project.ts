@@ -14,6 +14,7 @@ import * as http from 'http'
 import {ProjectView} from '../view/project/project-view'
 import {ipcRenderer} from 'electron'
 import {EventSource} from '../util/events'
+import {LineChecker} from 'line-column';
 const sockjs = require('sockjs')
 
 
@@ -49,9 +50,10 @@ interface GlobalSettings {
     tmp: string,
     userhome: string
 }
-export interface ModuleHandle {
+export interface FileHandle {
     content: string,
-    _savedContent
+    _savedContent: string,
+    lineChecker: LineChecker
 
     // For now tied to storage on hard disk, later on change things so we can store these wherever?
     filename: string
@@ -66,7 +68,7 @@ export class RunSession {
 
 export class LiveLangProject {
 
-    private openModules: { [path: string]: ModuleHandle } = {}
+    private openFiles: { [path: string]: FileHandle } = {}
     rootDir: string
 
     static getGlobalSettings(): GlobalSettings {
@@ -91,7 +93,7 @@ export class LiveLangProject {
         // bridge when we come to it
         watcher.on('add', (path, stat) => {
             if (!stat.isDirectory()) {
-                this.openModules[path] = this.getHandleFromFile(path);
+                this.openFiles[path] = this.getHandleFromFile(path);
                 this.render();
             }
         });
@@ -127,7 +129,11 @@ export class LiveLangProject {
 
     onProjectChanged() {
         const unparsed = this.getAllModules();
-        const parsed = unparsed.map(module => parser.parseSpecCached(style.theModule, module._savedContent, style.theModule.id));
+        const parsed = unparsed.map(module => parser.parseSpecCached(
+            style.theModule, 
+            module._savedContent, 
+            style.theModule.id
+        ));
         let modules: AST.ModuleNode[] = parsed.map(p => {
             if (p.error) {
                 console.error(p.error);
@@ -178,20 +184,24 @@ export class LiveLangProject {
         }
     }
 
-    getHandleFromFile(filename: string): ModuleHandle | null {
+    getHandleFromFile(filename: string): FileHandle | null {
         function loadFile(): string {
             return fs.readFileSync(filename).toString();
         }
 
+        const initialContent = loadFile();
+
         const handle = {
-            content: loadFile(),
+            content: initialContent,
             filename,
-            _savedContent: loadFile(),
+            lineChecker: require('line-column')(initialContent),
+            _savedContent: initialContent,
             reload() {
                 handle.content = loadFile();
             },
             save() {
                 fs.writeFileSync(filename, handle.content);
+                handle.lineChecker = require('line-column')(handle.content);
                 handle._savedContent = handle.content;
             }
         };
@@ -208,13 +218,13 @@ export class LiveLangProject {
         }).on('unlink', path => {
 
             watcher.close();
-            delete this.openModules[path];
+            delete this.openFiles[path];
         });
 
         return handle;
     }
 
-    getAllModules(): ModuleHandle[] {
-        return _.values(this.openModules);
+    getAllModules(): FileHandle[] {
+        return _.values(this.openFiles);
     }
 }

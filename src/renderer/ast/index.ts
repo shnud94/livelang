@@ -1,3 +1,4 @@
+import { FileHandle } from '../project/project';
 import {EventSource} from '../util/events';
 import {Type} from '../types/index';
 import * as Types from '../types/index';
@@ -39,7 +40,8 @@ export interface CodeNode {
     source?: {
         start: number,
         length: number,
-        end: number
+        end: number,
+        filehandle: FileHandle
     }
 }
 
@@ -233,11 +235,13 @@ export function createNode(node: any) : any {
     return node;
 }
 
-export const reviveNode = (val: any, parent: Nodes = null, storeById: any = {}) => {
+export const reviveNode = (val: any, parent: Nodes = null, storeById: any = {}, forEach: (node: Nodes) => void = () => {}) => {
     if (Array.isArray(val)) {
-        val.forEach(val => reviveNode(val, parent, storeById));
+        val.forEach(val => reviveNode(val, parent, storeById, forEach));
     }
     else if (val.type) {
+
+        forEach(val);
         // Assume we've revived a code node
         // Add id and parent
         // Keep existing ID if possible
