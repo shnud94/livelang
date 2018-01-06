@@ -10,7 +10,7 @@ const log = require('debug')('livelang:typechecker');
 import * as _ from 'underscore';
 import * as numbers from '../interpreter/lib/number';
 import * as arrays from '../interpreter/lib/array';
-import {identifier} from "../frontend/javascriptStyle";
+import { identifier } from "../frontend/javascriptStyle";
 import * as shelljs from 'shelljs';
 import * as path from 'path';
 import * as ts from 'typescript';
@@ -210,9 +210,9 @@ export interface TypedNode {
 
 export class ModuleTypeCheckContext {
     constructor(
-       public module: AST.ModuleNode,
-       public typeCheckContext: TypeCheckContext,
-    ){}
+        public module: AST.ModuleNode,
+        public typeCheckContext: TypeCheckContext,
+    ) { }
 
     rootScope: Scope = new Scope()
 
@@ -230,7 +230,7 @@ export class TypeCheckContext {
     }
     errors: TypeCheckError[] = []
     warnings: TypeCheckError[] = []
-    typesByNodeId: { [nodeId: string]: {node: AST.Nodes, type?: Type} } = {}
+    typesByNodeId: { [nodeId: string]: { node: AST.Nodes, type?: Type } } = {}
 
     checkType: TypeChecker = (node) => this.typesByNodeId[node._id] ? this.typesByNodeId[node._id].type : getAnyType()
     nodeFromId = (node: AST.Nodes) => this.typesByNodeId[node._id] ? this.typesByNodeId[node._id].node : null
@@ -270,7 +270,7 @@ export function typeCheckDeclaration(declaration: AST.DeclarationNode, context: 
     }
 
     declarationType = declarationType || getAnyType();
-    context.typeCheckContext.typesByNodeId[declaration._id] = {node: declaration, type: declarationType};
+    context.typeCheckContext.typesByNodeId[declaration._id] = { node: declaration, type: declarationType };
     const existing = resolveMultipleDeclarationsByIdentifier(declaration.identifier.value, typeCheckContext, scope);
 
     if (existing) {
@@ -358,7 +358,7 @@ export function resolveFunctionByIdentifier(identifier: string, match: { inputTy
     return matches[0].valueExpression as AST.CallableLiteral;
 }
 
-export function typeCheckCallExpression(expression: AST.CallExpressionNode, modContext: ModuleTypeCheckContext, scope: Scope) : Type {
+export function typeCheckCallExpression(expression: AST.CallExpressionNode, modContext: ModuleTypeCheckContext, scope: Scope): Type {
 
     const context = modContext.typeCheckContext;
     const inputType = typeCheckExpression(expression.input, modContext, scope);
@@ -422,27 +422,27 @@ export function typeCheckCallExpression(expression: AST.CallExpressionNode, modC
     return asMethod.output;
 }
 
-export function typingsFromNPM(module: string) : Type {
+export function typingsFromNPM(module: string): Type {
     const installPath = path.join(util.getUserHome(), 'livelang');
     if (!fs.existsSync(installPath)) fs.mkdirSync(installPath);
 
     // First try to install the module and look for built in typings
     try {
-        const result = child.execSync('npm install ' + module, {cwd: installPath});
+        const result = child.execSync('npm install ' + module, { cwd: installPath });
         const packageJSON = require(path.join(installPath, 'node_modules', module, 'package.json'));
         if (packageJSON.typings) {
             return typingsFromTypescript(path.join(installPath, 'node_modules', module, packageJSON.typings));
         }
-    }catch(e) {
+    } catch (e) {
         console.error("Error installing npm module");
         console.error(e);
     }
 
     // Otherwise, try get a standalone types module and use those
     try {
-        const result = child.execSync('npm install @types/' + module, {cwd: installPath});
+        const result = child.execSync('npm install @types/' + module, { cwd: installPath });
         return typingsFromTypescript(path.join(installPath, 'node_modules', '@types', module, 'index.d.ts'));
-    } catch(e) {
+    } catch (e) {
         console.error("Error installing @types for module");
         console.error(e);
     }
@@ -451,10 +451,10 @@ export function typingsFromNPM(module: string) : Type {
     return getAnyType();
 }
 
-export function typingsFromTypescript(filepath: string) : Type {
+export function typingsFromTypescript(filepath: string): Type {
 
     const fileContents = fs.readFileSync(filepath).toString();
-    const program = ts.createProgram([filepath], {types: [], rootDir: path.dirname(filepath), target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS});
+    const program = ts.createProgram([filepath], { types: [], rootDir: path.dirname(filepath), target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS });
     const sourceFile = program.getSourceFile(filepath);
     const typeChecker = program.getTypeChecker();
 
@@ -464,7 +464,7 @@ export function typingsFromTypescript(filepath: string) : Type {
         return getAnyType();
     }
 
-    function typeOfSymbol(symbol: ts.Symbol) : Type {
+    function typeOfSymbol(symbol: ts.Symbol): Type {
         if (symbol.exports) {
             return createMapType(_.mapObject(symbol.exports, typeOfSymbol), symbol.name);
         }
@@ -510,6 +510,9 @@ export function typeCheckExpression(expression: AST.ExpressionType, modContext: 
             const type = typeCheckDeclaration(resolved, modContext, scope);
             if (type.kind === 'unresolved') {
                 // we should wait for it to become resolved
+            }
+            else {
+                return type
             }
         }
         if (expression.type === 'expressionarrayLiteral') {
@@ -603,10 +606,12 @@ export function typeCheckExpression(expression: AST.ExpressionType, modContext: 
                 expression.output
             )
         }
+
+        return getAnyType()
     }
 
     const type = getType();
-    modContext.typeCheckContext.typesByNodeId[expression._id] = {type, node: expression};
+    modContext.typeCheckContext.typesByNodeId[expression._id] = { type, node: expression };
     return type;
 }
 
@@ -615,7 +620,7 @@ let lastReference: string = null;
 /**
  * Assumes all the built in types exist, uses them as part of this function
  */
-export function resolveReferenceTypesInType(type: Type, context: ModuleTypeCheckContext) : Type {
+export function resolveReferenceTypesInType(type: Type, context: ModuleTypeCheckContext): Type {
 
     const recurse = type => resolveReferenceTypesInType(type, context);
     const tryResolve = identifier => {
@@ -681,11 +686,11 @@ interface ModuleTypeCheckResult {
     type: MapType
 }
 
-export function mapTypeFromModuleContext(context: ModuleTypeCheckContext) : MapType {
+export function mapTypeFromModuleContext(context: ModuleTypeCheckContext): MapType {
 
     const getType = (node: AST.Nodes) => context.typeCheckContext.typesByNodeId[node._id].type;
     const mapped = _.mapObject(context.rootScope.declarationsByIdentifier, val => {
-      return createOrType(val.map(v => getType(v)));
+        return createOrType(val.map(v => getType(v)));
     });
 
     return createMapType(mapped);
@@ -765,7 +770,7 @@ export function typeCheckModule(module: AST.ModuleNode, context?: TypeCheckConte
     };
 }
 
-export function createChecker(modules: AST.ModuleNode[]) : {checker: TypeChecker, context: TypeCheckContext} {
+export function createChecker(modules: AST.ModuleNode[]): { checker: TypeChecker, context: TypeCheckContext } {
 
     const typeCheckContext = new TypeCheckContext();
     const results = modules.map(module => typeCheckModule(module, typeCheckContext));

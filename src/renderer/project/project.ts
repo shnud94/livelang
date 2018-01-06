@@ -11,20 +11,20 @@ import * as jsEmitter from './js-emitter'
 import * as style from '../frontend/javascriptStyle'
 import * as checker from '../types/checker'
 import * as http from 'http'
-import {ProjectView} from '../view/project/project-view'
-import {ipcRenderer} from 'electron'
-import {EventSource} from '../util/events'
-import {LineChecker} from 'line-column';
+import { ProjectView } from '../view/project/project-view'
+import { ipcRenderer } from 'electron'
+import { EventSource } from '../util/events'
+import { LineChecker } from 'line-column';
 const sockjs = require('sockjs')
 
 
 let messageListener = console.log.bind(console);
 const echo = sockjs.createServer({ sockjs_url: 'http://cdn.jsdelivr.net/sockjs/1.0.1/sockjs.min.js' });
-echo.on('connection', function(conn) {
-    conn.on('data', function(message) {
+echo.on('connection', function (conn) {
+    conn.on('data', function (message) {
         messageListener(message);
     });
-    conn.on('close', function() {});
+    conn.on('close', function () { });
 });
 
 const server = http.createServer();
@@ -34,12 +34,12 @@ server.listen(9999, 'localhost');
 let files = {};
 http.createServer((request, res) => {
     const id = request.url.split('/')[1];
-    res.writeHead(200, {'Content-Type': 'text/javascript'});
+    res.writeHead(200, { 'Content-Type': 'text/javascript' });
     res.end(files[id]);
 }).listen(3456, 'localhost');
 
 const w = window as any;
-w.livelang = {checker};
+w.livelang = { checker };
 
 interface SerializedProject {
     rootDir?: string,
@@ -62,7 +62,7 @@ export interface FileHandle {
 }
 
 export class RunSession {
-    constructor(public checky: checker.TypeChecker) {}
+    constructor(public checky: checker.TypeChecker) { }
     onEvent: Function
 }
 
@@ -130,8 +130,8 @@ export class LiveLangProject {
     onProjectChanged() {
         const unparsed = this.getAllModules();
         const parsed = unparsed.map(module => parser.parseSpecCached(
-            style.theModule, 
-            module._savedContent, 
+            style.theModule,
+            module._savedContent,
             style.theModule.id
         ));
         let modules: AST.ModuleNode[] = parsed.map(p => {
@@ -154,11 +154,11 @@ export class LiveLangProject {
         const checky = checker.createChecker(modules);
         this.lastTypeCheck = checky.context;
 
-        if (checky.context.errors) {
+        if (checky.context.errors && checky.context.errors.length > 0) {
             this.render();
         }
         else {
-            const js = jsEmitter.emitJs(modules, {checker: checky.checker, endpoint: 'http://localhost:9999'});
+            const js = jsEmitter.emitJs(modules, { checker: checky.checker, endpoint: 'http://localhost:9999' });
             files[0] = js;
 
             const session = new RunSession(checky.checker);

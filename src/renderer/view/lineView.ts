@@ -119,7 +119,7 @@ export class LineView<T> {
                 'white-space': 'nowrap',
                 visibility: 'hidden'
             });
-            self.measuringBox = self.measuringBox || $('<div>').css(style).appendTo('body');
+            self.measuringBox = self.measuringBox || $('<div>').css(style as JQueryCssProperties).appendTo('body');
             return self.measuringBox.html(text).outerWidth();
         }
 
@@ -271,7 +271,7 @@ export class LineView<T> {
 
             // Make sure we have at least something to edit or no lines will appear
             if (elements.length === 0) {
-                elements = [{content: ''}];
+                elements = [{ content: '' }];
             }
 
             elements.forEach(lineElement => {
@@ -533,7 +533,7 @@ export class LineView<T> {
                 }
             }
             return {
-                close(){
+                close() {
                 }
             }
         },
@@ -549,7 +549,7 @@ export class LineView<T> {
                 }
             }
             return {
-                close(){
+                close() {
                 }
             }
         }
